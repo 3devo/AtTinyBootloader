@@ -17,16 +17,9 @@
 
 #include <stdint.h>
 #include <avr/wdt.h>
-#include <util/crc16.h>
 #include "TwoWire.h"
+#include "Crc.h"
 #include "BaseProtocol.h"
-
-static uint8_t calcCrc(uint8_t *data, uint8_t len) {
-	uint8_t crc = 0xff;
-	for (uint8_t i = 0; i < len; ++i)
-		crc = _crc8_ccitt_update(crc, data[i]);
-	return crc;
-}
 
 static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 	if (len >= 1 && data[0] == GeneralCallCommands::RESET) {
@@ -51,7 +44,7 @@ int TwoWireCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen)
 		data[0] = Status::INVALID_TRANSFER;
 		len = 1;
 	} else {
-		uint8_t crc = calcCrc(data, len);
+		uint8_t crc = Crc8Ccitt().update(data, len).get();
 		if (crc != 0) {
 			data[0] = Status::INVALID_CRC;
 			len = 1;
@@ -69,7 +62,7 @@ int TwoWireCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen)
 	data[1] = len - 1;
 	++len;
 
-	data[len] = calcCrc(data, len);
+	data[len] = Crc8Ccitt().update(data, len).get();
 	++len;
 
 
