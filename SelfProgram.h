@@ -18,7 +18,7 @@
 #ifndef SELFPROGRAM_H_
 #define SELFPROGRAM_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void startApplication();
 

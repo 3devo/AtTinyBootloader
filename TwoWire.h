@@ -18,7 +18,7 @@
 #ifndef TWOWIRE_H_
 #define TWOWIRE_H_
 
-#include <inttypes.h>
+#include <stdint.h>
 
 void TwoWireUpdate();
 void TwoWireInit(bool useInterrupts, uint8_t initialAddress, uint8_t initialMask = 0x00);
