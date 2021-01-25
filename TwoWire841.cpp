@@ -24,10 +24,6 @@
 static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
 
-#if !defined(__AVR_ATtiny841__)
-#error "Only works with ATtiny841"
-#endif
-
 void TwoWireInit(bool useInterrupts, uint8_t initialAddress, uint8_t initialMask) {
 	initAddress = initialAddress;
 	initMask = initialMask;
