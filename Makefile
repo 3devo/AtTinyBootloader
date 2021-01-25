@@ -15,7 +15,7 @@ PROTOCOL_VERSION = 0x0101
 
 CPPSRC         = $(wildcard *.cpp)
 OBJ            = $(CPPSRC:.cpp=.o)
-LINKER_SCRIPT  = linker-script.x
+LDSCRIPT       = linker-script.x
 MCU            = attiny841
 # Size of the bootloader area. Must be a multiple of the erase size
 BL_SIZE        = 2048
@@ -25,11 +25,11 @@ BL_VERSION     = 2
 ERASE_SIZE     = 64
 
 CXXFLAGS       =
-CXXFLAGS      += -g3 -mmcu=$(MCU) -std=gnu++11
+CXXFLAGS      += -g3 -std=gnu++11
 CXXFLAGS      += -Wall -Wextra
 CXXFLAGS      += -Os -fpack-struct -fshort-enums
 CXXFLAGS      += -flto -fno-fat-lto-objects
-CXXFLAGS      += -DF_CPU=8000000UL
+
 CXXFLAGS      += -DVERSION_SIZE=$(VERSION_SIZE)
 CXXFLAGS      += -DSPM_ERASESIZE=$(ERASE_SIZE)
 CXXFLAGS      += -DPROTOCOL_VERSION=$(PROTOCOL_VERSION) -DBOARD_TYPE_$(BOARD_TYPE)
@@ -37,21 +37,27 @@ CXXFLAGS      += -DHARDWARE_REVISION=$(CURRENT_HW_REVISION) -DHARDWARE_COMPATIBL
 CXXFLAGS      += -DBL_VERSION=$(BL_VERSION)
 
 LDFLAGS        =
+# Use a custom linker script
+LDFLAGS       += -T $(LDSCRIPT)
+
+PREFIX         = avr-
+SIZE_FORMAT    = avr
+
 LDFLAGS       += -mmcu=$(MCU)
 
-# Use a custom linker script
-LDFLAGS       += -T $(LINKER_SCRIPT)
+CXXFLAGS      += -mmcu=$(MCU) -DF_CPU=8000000UL
+
 # Pass sizes to the script for positioning
 LDFLAGS       += -Wl,--defsym=BL_SIZE=$(BL_SIZE)
 LDFLAGS       += -Wl,--defsym=VERSION_SIZE=$(VERSION_SIZE)
 # Pass ERASE_SIZE to the script to verify alignment
 LDFLAGS       += -Wl,--defsym=ERASE_SIZE=$(ERASE_SIZE)
 
+CC             = $(PREFIX)gcc
+OBJCOPY        = $(PREFIX)objcopy
+OBJDUMP        = $(PREFIX)objdump
+SIZE           = $(PREFIX)size
 
-CC             = avr-gcc
-OBJCOPY        = avr-objcopy
-OBJDUMP        = avr-objdump
-SIZE           = avr-size
 
 ifdef CURRENT_HW_REVISION
   CURRENT_HW_REVISION_MAJOR=$(shell echo $$(($(CURRENT_HW_REVISION) / 0x10)))
@@ -81,12 +87,13 @@ fuses:
 	fi
 
 size:
-	$(SIZE) --format=avr $(FILE_NAME).elf
+	$(SIZE) --format=$(SIZE_FORMAT) $(FILE_NAME).elf
+
 clean:
 	rm -rf $(OBJ) $(OBJ:.o=.d) *.elf *.hex *.lst *.map
 
-$(FILE_NAME).elf: $(OBJ) $(LINKER_SCRIPT)
-	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LIBS)
+$(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
+	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
 %.o: %.cpp
 	$(CC) $(CXXFLAGS) -MMD -MP -c -o $@ $<
