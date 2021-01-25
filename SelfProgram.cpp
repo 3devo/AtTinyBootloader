@@ -15,8 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define SIGRD 5
-
 #include "SelfProgram.h"
 #include "bootloader.h"
 
