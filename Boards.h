@@ -18,6 +18,8 @@
 #ifndef BOARDS_H_
 #define BOARDS_H_
 
+#include <stdint.h>
+
 struct Pin {
 	volatile uint8_t* port;
 	volatile uint8_t* ddr;
