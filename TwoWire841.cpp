@@ -24,7 +24,7 @@
 static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
 
-void TwoWireInit(bool useInterrupts, uint8_t initialAddress, uint8_t initialMask) {
+void TwoWireInit(uint8_t initialAddress, uint8_t initialMask) {
 	initAddress = initialAddress;
 	initMask = initialMask;
 
@@ -33,10 +33,6 @@ void TwoWireInit(bool useInterrupts, uint8_t initialAddress, uint8_t initialMask
 
 	// Enable Data Interrupt, Address/Stop Interrupt, Two-Wire Interface, Stop Interrpt
 	TWSCRA = _BV(TWEN) | _BV(TWSIE);
-
-	if (useInterrupts) {
-		TWSCRA |= _BV(TWDIE) | _BV(TWASIE) ;
-	}
 }
 
 void TwoWireDeinit() {
@@ -146,12 +142,6 @@ void TwoWireUpdate() {
 		}
 		return;
 	}
-}
-
-// The two wire interrupt service routine
-ISR(TWI_SLAVE_vect)
-{
-	TwoWireUpdate();
 }
 
 #endif

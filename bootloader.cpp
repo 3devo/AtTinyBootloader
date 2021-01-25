@@ -272,7 +272,7 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 
 extern "C" {
 	void runBootloader() {
-		TwoWireInit(false /*useInterrupts*/, INITIAL_I2C_ADDRESS, INITIAL_I2C_MASK);
+		TwoWireInit(INITIAL_I2C_ADDRESS, INITIAL_I2C_MASK);
 
 		while (!bootloaderExit) {
 			TwoWireUpdate();
