@@ -24,9 +24,11 @@
 static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
 
-void TwoWireInit(uint8_t initialAddress, uint8_t initialMask) {
+void TwoWireInit(uint8_t initialAddress, uint8_t initialBits) {
 	initAddress = initialAddress;
-	initMask = initialMask;
+	// Create a mask with initialBits zeroes (address bits to match)
+	// followed by ones (address bits to ignore).
+	initMask = (0x7f >> initialBits);
 
 	TwoWireResetDeviceAddress();
 	TWSCRB = _BV(TWHNM);

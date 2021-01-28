@@ -41,6 +41,6 @@ struct Pin {
 
 // By default, listen to addresses 8-15
 const uint8_t INITIAL_I2C_ADDRESS = 0x08;
-const uint8_t INITIAL_I2C_MASK = 0x07;
+const uint8_t INITIAL_I2C_BITS = 4;
 
 #endif /* BOARDS_H_ */
