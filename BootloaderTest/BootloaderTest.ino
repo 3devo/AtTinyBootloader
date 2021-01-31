@@ -68,6 +68,13 @@ struct Cfg {
   uint16_t maxWriteSize = 0;
 } cfg;
 
+struct ReadLen {
+  uint8_t len;
+  bool exact;
+};
+
+constexpr ReadLen READ_EXACTLY(uint8_t len) { return {len, true}; }
+constexpr ReadLen READ_UP_TO(uint8_t len) { return {len, false}; }
 
 bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
   assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
@@ -84,49 +91,56 @@ bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor =
   return true;
 }
 
-bool read_status(uint8_t *status, uint8_t *datain, uint8_t okLen, uint8_t failLen, bool skip_start = false) {
-  assertLessOrEqual(okLen + 3, MAX_MSG_LEN, "", false);
-  assertLessOrEqual(failLen + 3, MAX_MSG_LEN, "", false);
+bool read_status(uint8_t *status, uint8_t *datain, ReadLen okLen, ReadLen failLen, uint8_t *actualLen = nullptr, bool skip_start = false) {
+  assertLessOrEqual(okLen.len + 3, MAX_MSG_LEN, "", false);
+  assertLessOrEqual(failLen.len + 3, MAX_MSG_LEN, "", false);
   if (!skip_start) {
     assertAck(bus.startRead(cfg.curAddr), "", false);
   }
   assertTrue(status != nullptr, "", false);
   assertAck(bus.readThenAck(*status), "", false);
 
-  uint8_t expectedLen;
+  ReadLen expectedLen;
   if (*status == Status::COMMAND_OK)
     expectedLen = okLen;
   else if (*status == Status::COMMAND_FAILED)
     expectedLen = failLen;
   else // All other errors have no data
-    expectedLen = 0;
+    expectedLen = READ_EXACTLY(0);
 
   uint8_t len;
   assertAck(bus.readThenAck(len), "", false);
-  assertEqual(len, expectedLen, "", false);
 
-  for (uint8_t i = 0; i < expectedLen; ++i)
+  if (actualLen)
+    *actualLen = len;
+
+  if (expectedLen.exact)
+    assertEqual(len, expectedLen.len, "", false);
+  else
+    assertLessOrEqual(len, expectedLen.len, "", false);
+
+  for (uint8_t i = 0; i < len; ++i)
     assertAck(bus.readThenAck(datain[i]), "", false);
 
   uint8_t crc;
   assertAck(bus.readThenNack(crc), "", false);
 
-  uint8_t expectedCrc = Crc().update(*status).update(len).update(datain, expectedLen).get();
+  uint8_t expectedCrc = Crc().update(*status).update(len).update(datain, len).get();
   assertEqual(crc, expectedCrc, "", false);
   if (!cfg.repStartAfterRead)
     bus.stop();
   return true;
 }
 
-bool run_transaction(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t *status, uint8_t *datain = nullptr, uint8_t okLen = 0, uint8_t failLen = 0) {
+bool run_transaction(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t *status, uint8_t *datain = nullptr, ReadLen okLen = READ_EXACTLY(0), ReadLen failLen = READ_EXACTLY(0), uint8_t *actualLen = nullptr) {
   assertTrue(write_command(cmd, dataout, len), "", false);
-  assertTrue(read_status(status, datain, okLen, failLen), "", false);
+  assertTrue(read_status(status, datain, okLen, failLen, actualLen), "", false);
   return true;
 }
 
-bool run_transaction_ok(uint8_t cmd, uint8_t *dataout = nullptr, uint8_t len = 0, uint8_t *datain = nullptr, uint8_t okLen = 0, uint8_t failLen = 0) {
+bool run_transaction_ok(uint8_t cmd, uint8_t *dataout = nullptr, uint8_t len = 0, uint8_t *datain = nullptr, ReadLen okLen = READ_EXACTLY(0), ReadLen failLen = READ_EXACTLY(0), uint8_t *actualLen = nullptr) {
   uint8_t status;
-  assertTrue(run_transaction(cmd, dataout, len, &status, datain, okLen, failLen), "", false);
+  assertTrue(run_transaction(cmd, dataout, len, &status, datain, okLen, failLen, actualLen), "", false);
   assertOk(status, "", false);
   return true;
 }
@@ -188,7 +202,7 @@ test(020_ack) {
 
 test(030_protocol_version) {
   uint8_t data[2];
-  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
 
   uint16_t version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
@@ -242,7 +256,7 @@ test(050_set_i2c_address) {
   // response from the new address.
   bool skip_start = (res == SoftWire::ack);
   uint8_t status;
-  assertTrue(read_status(&status, NULL, 0, 0, skip_start));
+  assertTrue(read_status(&status, NULL, READ_EXACTLY(0), READ_EXACTLY(0), NULL, skip_start));
   assertOk(status);
 
   // If the address actually changed, check that no response is received
@@ -266,19 +280,20 @@ test(050_set_i2c_address) {
 
   // Check that commands work on the new address
   uint8_t protodata[2];
-  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, protodata, sizeof(protodata)));
+  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, protodata, READ_EXACTLY(sizeof(protodata))));
 }
+
 
 
 test(060_reread_protocol_version) {
   uint8_t data[2];
-  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
 
   uint16_t version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
 
   uint8_t status;
-  assertTrue(read_status(&status, data, sizeof(data), 0));
+  assertTrue(read_status(&status, data, READ_EXACTLY(sizeof(data)), READ_EXACTLY(0)));
   assertOk(status);
   version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
@@ -301,7 +316,7 @@ test(065_short_long_read) {
     bus.stop();
 
   // Check that we can still read a valid reply after that
-  assertTrue(read_status(&status, data, sizeof(data), 0));
+  assertTrue(read_status(&status, data, READ_EXACTLY(sizeof(data)), READ_EXACTLY(0)));
   assertOk(status);
   uint16_t version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
@@ -320,7 +335,7 @@ test(065_short_long_read) {
     bus.stop();
 
   // Check that we can still read a valid reply after that
-  assertTrue(read_status(&status, data, sizeof(data), 0));
+  assertTrue(read_status(&status, data, READ_EXACTLY(sizeof(data)), READ_EXACTLY(0)));
   assertOk(status);
   version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
@@ -328,7 +343,7 @@ test(065_short_long_read) {
 
 test(070_get_hardware_info) {
   uint8_t data[5];
-  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_INFO, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_INFO, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
 
   assertEqual(data[0], HARDWARE_TYPE);
   assertEqual(data[1], HARDWARE_COMPATIBLE_REVISION);
@@ -342,14 +357,14 @@ test(071_get_hardware_revision) {
     skip();
 
   uint8_t data[1];
-  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_REVISION, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_REVISION, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
 
   assertEqual(data[0], HARDWARE_REVISION);
 }
 
 test(075_get_serial_number) {
   uint8_t data[9];
-  assertTrue(run_transaction_ok(Commands::GET_SERIAL_NUMBER, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::GET_SERIAL_NUMBER, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
 
   auto on_failure = [&data]() {
     Serial.print("serial = ");
@@ -377,7 +392,7 @@ test(080_crc_error) {
   uint8_t crc_xor = random(1, 256);
   assertTrue(write_command(Commands::GET_HARDWARE_INFO, nullptr, 0, crc_xor));
   // This expects a CRC error, so no data
-  assertTrue(read_status(&status, nullptr, 0, 0));
+  assertTrue(read_status(&status, nullptr, READ_EXACTLY(0), READ_EXACTLY(0)));
   assertEqual(status, Status::INVALID_CRC);
 }
 
@@ -394,7 +409,7 @@ test(100_command_not_supported) {
 
 test(110_power_up_display) {
   uint8_t data[1];
-  assertTrue(run_transaction_ok(Commands::POWER_UP_DISPLAY, nullptr, 0, data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::POWER_UP_DISPLAY, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
   assertEqual(data[0], DISPLAY_CONTROLLER_TYPE);
 
   if (cfg.displayAttached) {
@@ -419,7 +434,7 @@ bool verify_flash(uint8_t *data, uint16_t len, uint8_t readlen) {
   while (offset < len) {
     uint8_t nextlen = min(readlen, len - offset);
     uint8_t dataout[3] = {(uint8_t)(offset >> 8), (uint8_t)offset, nextlen};
-    assertTrue(run_transaction_ok(Commands::READ_FLASH, dataout, sizeof(dataout), datain, nextlen), "", on_failure());
+    assertTrue(run_transaction_ok(Commands::READ_FLASH, dataout, sizeof(dataout), datain, READ_EXACTLY(nextlen)), "", on_failure());
     for (i = 0; i < nextlen; ++i)
       assertEqual(datain[i], data[offset + i], "", on_failure());
     offset += nextlen;
@@ -433,7 +448,7 @@ bool write_flash_cmd(uint16_t address, uint8_t *data, uint8_t len, uint8_t *stat
   dataout[0] = address >> 8;
   dataout[1] = address;
   memcpy(dataout + 2, data, len);
-  assertTrue(run_transaction(Commands::WRITE_FLASH, dataout, len + 2, status, reason, 0, 1), "", false);
+  assertTrue(run_transaction(Commands::WRITE_FLASH, dataout, len + 2, status, reason, READ_EXACTLY(0), READ_EXACTLY(1)), "", false);
   return true;
 }
 
@@ -452,7 +467,7 @@ bool write_flash(uint8_t *data, uint16_t len, uint8_t writelen, uint8_t *erase_c
     assertOk(status, "", on_failure());
     offset += nextlen;
   }
-  assertTrue(run_transaction_ok(Commands::FINALIZE_FLASH, nullptr, 0, erase_count, 1, 1), "", on_failure());
+  assertTrue(run_transaction_ok(Commands::FINALIZE_FLASH, nullptr, 0, erase_count, READ_EXACTLY(1), READ_EXACTLY(1)), "", on_failure());
   return true;
 }
 
@@ -496,7 +511,7 @@ test(120_write_flash) {
     return;
   }
   uint8_t hwinfo[5];
-  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_INFO, nullptr, 0, hwinfo, sizeof(hwinfo)));
+  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_INFO, nullptr, 0, hwinfo, READ_EXACTLY(sizeof(hwinfo))));
   uint16_t flash_size = hwinfo[3] << 8 | hwinfo[4];
 
   if (cfg.maxWriteSize && cfg.maxWriteSize < flash_size)
@@ -561,7 +576,7 @@ test(130_invalid_writes) {
 
   // Read the current flash contents to prevent actually writing to flash
   uint8_t dataout[3] = {0, 0, sizeof(data)};
-  assertTrue(run_transaction_ok(Commands::READ_FLASH, dataout, sizeof(dataout), data, sizeof(data)));
+  assertTrue(run_transaction_ok(Commands::READ_FLASH, dataout, sizeof(dataout), data, READ_EXACTLY(sizeof(data))));
 
   // Start at 0 and skip a few bytes
   assertTrue(write_flash_cmd(0, data, 13, &status, &reason));
@@ -597,7 +612,7 @@ test(130_invalid_writes) {
   // FINALIZE_FLASH should also fail with an invalid address 0/1
   assertTrue(write_flash_cmd(0, data, 2, &status, &reason));
   assertOk(status);
-  assertTrue(run_transaction(Commands::FINALIZE_FLASH, nullptr, 0, &status, &reason, 1, 1));
+  assertTrue(run_transaction(Commands::FINALIZE_FLASH, nullptr, 0, &status, &reason, READ_EXACTLY(1), READ_EXACTLY(1)));
   assertEqual(status, Status::COMMAND_FAILED);
   assertEqual(reason, 2);
 }
