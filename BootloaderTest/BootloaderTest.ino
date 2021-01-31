@@ -118,13 +118,13 @@ bool read_status(uint8_t *status, uint8_t *datain, uint8_t okLen, uint8_t failLe
   return true;
 }
 
-bool run_transaction(uint8_t cmd, uint8_t *dataout, size_t len, uint8_t *status, uint8_t *datain = nullptr, size_t okLen = 0, uint8_t failLen = 0) {
+bool run_transaction(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t *status, uint8_t *datain = nullptr, uint8_t okLen = 0, uint8_t failLen = 0) {
   assertTrue(write_command(cmd, dataout, len), "", false);
   assertTrue(read_status(status, datain, okLen, failLen), "", false);
   return true;
 }
 
-bool run_transaction_ok(uint8_t cmd, uint8_t *dataout = nullptr, size_t len = 0, uint8_t *datain = nullptr, size_t okLen = 0, uint8_t failLen = 0) {
+bool run_transaction_ok(uint8_t cmd, uint8_t *dataout = nullptr, uint8_t len = 0, uint8_t *datain = nullptr, uint8_t okLen = 0, uint8_t failLen = 0) {
   uint8_t status;
   assertTrue(run_transaction(cmd, dataout, len, &status, datain, okLen, failLen), "", false);
   assertOk(status, "", false);
