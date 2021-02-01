@@ -24,11 +24,11 @@ void startApplication();
 
 class SelfProgram {
 public:
-	static void readFlash(uint16_t address, uint8_t *data, uint8_t len);
+	static void readFlash(uint16_t address, uint8_t *data, uint16_t len);
 
 	static uint8_t readByte(uint16_t address);
 
-	static uint8_t writePage(uint16_t address, uint8_t *data, uint8_t len);
+	static uint8_t writePage(uint16_t address, uint8_t *data, uint16_t len);
 
 	static void writeTrampoline(uint16_t instruction);
 

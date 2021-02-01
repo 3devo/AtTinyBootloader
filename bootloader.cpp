@@ -69,8 +69,8 @@ volatile bool bootloaderExit = false;
 static uint8_t writeBuffer[FLASH_ERASE_SIZE];
 static uint16_t nextWriteAddress = 0;
 
-static bool equalToFlash(uint16_t address, uint8_t len) {
-	uint8_t offset = 0;
+static bool equalToFlash(uint16_t address, uint16_t len) {
+	uint16_t offset = 0;
 	while (len > 0) {
 		if (writeBuffer[offset] != SelfProgram::readByte(address + offset))
 			return false;
@@ -81,12 +81,12 @@ static bool equalToFlash(uint16_t address, uint8_t len) {
 }
 
 
-static uint8_t commitToFlash(uint16_t address, uint8_t len) {
+static uint8_t commitToFlash(uint16_t address, uint16_t len) {
 	// If nothing needs to be changed, then don't
 	if (equalToFlash(address, len))
 		return 0;
 
-	uint8_t offset = 0;
+	uint16_t offset = 0;
 	while (len > 0) {
 		uint8_t pageLen = len < FLASH_WRITE_SIZE ? len : FLASH_WRITE_SIZE;
 		uint8_t err = SelfProgram::writePage(address + offset, &writeBuffer[offset], pageLen);
@@ -98,7 +98,7 @@ static uint8_t commitToFlash(uint16_t address, uint8_t len) {
 	return 0;
 }
 
-static cmd_result handleWriteFlash(uint16_t address, uint8_t *data, uint8_t len, uint8_t *dataout) {
+static cmd_result handleWriteFlash(uint16_t address, uint8_t *data, uint16_t len, uint8_t *dataout) {
 	if (address == 0)
 		nextWriteAddress = 0;
 

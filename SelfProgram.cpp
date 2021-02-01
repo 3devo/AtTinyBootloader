@@ -38,7 +38,7 @@
 uint16_t SelfProgram::trampolineStart = 0;
 uint8_t SelfProgram::eraseCount = 0;
 
-void SelfProgram::readFlash(uint16_t address, uint8_t *data, uint8_t len) {
+void SelfProgram::readFlash(uint16_t address, uint8_t *data, uint16_t len) {
 	for (uint8_t i=0; i < len; i++) {
 		data[i] = readByte(address + i);
 	}
@@ -55,7 +55,7 @@ uint8_t SelfProgram::readByte(uint16_t address) {
 	return pgm_read_byte(address);
 }
 
-uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint8_t len) {
+uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint16_t len) {
 	// Can only write to a 16 byte page boundary
 	if (!len || address % FLASH_WRITE_SIZE != 0 || len > FLASH_WRITE_SIZE) {
 		return 1;
