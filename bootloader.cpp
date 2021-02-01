@@ -63,7 +63,10 @@ static_assert(sizeof(version_info) == VERSION_SIZE, "Version section has wrong s
 
 volatile bool bootloaderExit = false;
 
-static uint8_t writeBuffer[SPM_ERASESIZE];
+// Note that we must buffer a full erase page size (not smaller), since
+// we must know at the start of an erase page whether any byte in the
+// entire page is changed to decide whether or not to erase.
+static uint8_t writeBuffer[FLASH_ERASE_SIZE];
 static uint16_t nextWriteAddress = 0;
 
 static bool equalToFlash(uint16_t address, uint8_t len) {
@@ -85,7 +88,7 @@ static uint8_t commitToFlash(uint16_t address, uint8_t len) {
 
 	uint8_t offset = 0;
 	while (len > 0) {
-		uint8_t pageLen = len < SPM_PAGESIZE ? len : SPM_PAGESIZE;
+		uint8_t pageLen = len < FLASH_WRITE_SIZE ? len : FLASH_WRITE_SIZE;
 		uint8_t err = SelfProgram::writePage(address + offset, &writeBuffer[offset], pageLen);
 		if (err)
 			return err;
@@ -105,12 +108,12 @@ static cmd_result handleWriteFlash(uint16_t address, uint8_t *data, uint8_t len,
 
 	nextWriteAddress += len;
 	while (address < nextWriteAddress) {
-		writeBuffer[address % SPM_ERASESIZE] = *data;
+		writeBuffer[address % sizeof(writeBuffer)] = *data;
 		++data;
 		++address;
 
-		if (address % SPM_ERASESIZE == 0) {
-			uint8_t err = commitToFlash(address - SPM_ERASESIZE, SPM_ERASESIZE);
+		if (address % sizeof(writeBuffer) == 0) {
+			uint8_t err = commitToFlash(address - sizeof(writeBuffer), sizeof(writeBuffer));
 			if (err) {
 				dataout[0] = err;
 				return cmd_result(Status::COMMAND_FAILED, 1);
@@ -239,7 +242,7 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 			if (len != 0)
 				return cmd_result(Status::INVALID_ARGUMENTS);
 
-			uint16_t pageAddress = nextWriteAddress & ~(SPM_ERASESIZE - 1);
+			uint16_t pageAddress = nextWriteAddress & ~(sizeof(writeBuffer) - 1);
 			uint8_t err = commitToFlash(pageAddress, nextWriteAddress - pageAddress);
 			if (err) {
 				dataout[0] = err;

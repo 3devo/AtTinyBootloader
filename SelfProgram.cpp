@@ -24,6 +24,15 @@
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
 
+#if FLASH_WRITE_SIZE != SPM_PAGESIZE
+#error "Incorrect FLASH_WRITE_SIZE"
+#endif
+
+#if FLASH_ERASE_SIZE % FLASH_WRITE_SIZE != 0
+#error "Incorrect FLASH_ERASE_SIZE"
+#endif
+
+
 // The actual value is set by main(), to avoid the overhead gcc
 // generates for running a "constructor" to set this value
 uint16_t SelfProgram::trampolineStart = 0;
@@ -48,7 +57,7 @@ uint8_t SelfProgram::readByte(uint16_t address) {
 
 uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint8_t len) {
 	// Can only write to a 16 byte page boundary
-	if (!len || address % SPM_PAGESIZE != 0 || len > SPM_PAGESIZE) {
+	if (!len || address % FLASH_WRITE_SIZE != 0 || len > FLASH_WRITE_SIZE) {
 		return 1;
 	}
 
@@ -77,10 +86,10 @@ uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint8_t len) {
 	}
 
 	// If we are the beginning of a 4-page boundary, erase it
-	if (address % SPM_ERASESIZE == 0) {
+	if (address % FLASH_ERASE_SIZE == 0) {
 		// If this is the page containing the trampoline, it
 		// will already be erased when writing the first page
-		if (address / SPM_ERASESIZE != trampolineStart / SPM_ERASESIZE) {
+		if (address / FLASH_ERASE_SIZE != trampolineStart / FLASH_ERASE_SIZE) {
 			if (eraseCount < 0xff)
 				++eraseCount;
 			boot_page_erase_safe(address);

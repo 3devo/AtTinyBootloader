@@ -17,12 +17,13 @@ CPPSRC         = $(wildcard *.cpp)
 OBJ            = $(CPPSRC:.cpp=.o)
 LDSCRIPT       = linker-script.x
 MCU            = attiny841
+FLASH_WRITE_SIZE    = SPM_PAGESIZE # Defined by avr-libc
+FLASH_ERASE_SIZE    = 64
+
 # Size of the bootloader area. Must be a multiple of the erase size
 BL_SIZE        = 2048
 VERSION_SIZE   = 4
 BL_VERSION     = 2
-# Set the flash erase page size for the MCU here.
-ERASE_SIZE     = 64
 
 CXXFLAGS       =
 CXXFLAGS      += -g3 -std=gnu++11
@@ -31,7 +32,9 @@ CXXFLAGS      += -Os -fpack-struct -fshort-enums
 CXXFLAGS      += -flto -fno-fat-lto-objects
 
 CXXFLAGS      += -DVERSION_SIZE=$(VERSION_SIZE)
-CXXFLAGS      += -DSPM_ERASESIZE=$(ERASE_SIZE)
+CXXFLAGS      += -DFLASH_ERASE_SIZE=$(FLASH_ERASE_SIZE)
+CXXFLAGS      += -DFLASH_WRITE_SIZE=$(FLASH_WRITE_SIZE)
+CXXFLAGS      += -DFLASH_APP_OFFSET=$(FLASH_APP_OFFSET)
 CXXFLAGS      += -DPROTOCOL_VERSION=$(PROTOCOL_VERSION) -DBOARD_TYPE_$(BOARD_TYPE)
 CXXFLAGS      += -DHARDWARE_REVISION=$(CURRENT_HW_REVISION) -DHARDWARE_COMPATIBLE_REVISION=$(COMPATIBLE_HW_REVISION)
 CXXFLAGS      += -DBL_VERSION=$(BL_VERSION)
@@ -51,7 +54,7 @@ CXXFLAGS      += -mmcu=$(MCU) -DF_CPU=8000000UL
 LDFLAGS       += -Wl,--defsym=BL_SIZE=$(BL_SIZE)
 LDFLAGS       += -Wl,--defsym=VERSION_SIZE=$(VERSION_SIZE)
 # Pass ERASE_SIZE to the script to verify alignment
-LDFLAGS       += -Wl,--defsym=ERASE_SIZE=$(ERASE_SIZE)
+LDFLAGS       += -Wl,--defsym=FLASH_ERASE_SIZE=$(FLASH_ERASE_SIZE)
 
 CC             = $(PREFIX)gcc
 OBJCOPY        = $(PREFIX)objcopy

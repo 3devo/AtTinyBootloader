@@ -86,7 +86,7 @@ SECTIONS
       /* Verify that the bootloader is aligned to a erase size boundary,
        * so changing boot_trampoline does not need to erase any part of
        * the bootloader. */
-      ASSERT(ABSOLUTE(.) % ERASE_SIZE == 0, "Bootloader should be aligned to erase size (change BL_SIZE)");
+      ASSERT(ABSOLUTE(.) % FLASH_ERASE_SIZE == 0, "Bootloader should be aligned to erase size (change BL_SIZE)");
    }
 
    /* This sets the starting address for the .text section. This output
