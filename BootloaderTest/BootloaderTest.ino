@@ -404,28 +404,59 @@ test(071_get_hardware_revision) {
 }
 
 test(075_get_serial_number) {
-  uint8_t data[9];
-  assertTrue(run_transaction_ok(Commands::GET_SERIAL_NUMBER, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
+  #if defined(TEST_SUBJECT_ATTINY)
+    uint8_t data[9];
+  #elif defined(TEST_SUBJECT_STM32)
+    uint8_t data[12];
+  #endif
+
+  assertTrue(run_transaction_ok(Commands::GET_SERIAL_NUMBER, nullptr, 0, data, READ_EXACTLY(sizeof(data)), READ_EXACTLY(0)));
 
   auto on_failure = [&data]() {
-    Serial.print("serial = ");
+    Serial.print("serial =");
     for (uint8_t i = 0; i < sizeof(data); ++i) {
       Serial.print(" 0x"); Serial.print(data[i], HEX);
     }
     Serial.println();
   };
 
-  // This is not required by the protocol, but the current
-  // implementation returns the unique data from the attiny chip, which
-  // is a lot number, wafer number and x/y position. The lot number
-  // seems to be an ASCII uppercase letter followed by 5 ASCII numbers,
-  // so check that.
-  assertMoreOrEqual(data[0], 'A', "", on_failure());
-  assertLessOrEqual(data[0], 'Z', "", on_failure());
-  for (uint8_t i = 1; i < 6; ++i) {
-    assertMoreOrEqual(data[i], '0', "", on_failure());
-    assertLessOrEqual(data[i], '9', "", on_failure());
-  }
+  #if defined(TEST_SUBJECT_ATTINY)
+    // This is not required by the protocol, but the current ATtiny
+    // implementation returns the unique data from the chip, which
+    // is a lot number, wafer number and x/y position. The lot number
+    // seems to be an ASCII uppercase letter followed by 5 ASCII numbers,
+    // so check that.
+    assertMoreOrEqual(data[0], 'A', "", on_failure());
+    assertLessOrEqual(data[0], 'Z', "", on_failure());
+    for (uint8_t i = 1; i < 6; ++i) {
+      assertMoreOrEqual(data[i], '0', "", on_failure());
+      assertLessOrEqual(data[i], '9', "", on_failure());
+    }
+  #elif defined(TEST_SUBJECT_STM32)
+    // This is not required by the protocol, but the current STM32
+    // implementation returns the unique data from the chip, which is
+    // two ASCII lot numbers, 8-bit binary wafer number and BCD x/y
+    // position.  The lot number seems to be an ASCII uppercase letter
+    // followed by 2 ASCII numbers, so check that.
+    // Note that this serial number has the words reversed
+    assertMoreOrEqual(data[0], 'A', "", on_failure());
+    assertLessOrEqual(data[0], 'Z', "", on_failure());
+    assertMoreOrEqual(data[5], 'A', "", on_failure());
+    assertLessOrEqual(data[5], 'Z', "", on_failure());
+    for (uint8_t i = 0; i < 2; ++i) {
+      assertMoreOrEqual(data[1 + i], '0', "", on_failure());
+      assertLessOrEqual(data[1 + i], '9', "", on_failure());
+      assertMoreOrEqual(data[6 + i], '0', "", on_failure());
+      assertLessOrEqual(data[6 + i], '9', "", on_failure());
+    }
+    // This seems to be a space, probably to fill up the lot number
+    assertEqual(data[3], ' ', "", on_failure());
+    // X/Y coordinates, BCD-encoded
+    for (uint8_t i = 0; i < 4; ++i) {
+      assertLessOrEqual(data[8 + i] & 0xf0, 0x90, "", on_failure());
+      assertLessOrEqual(data[8 + i] & 0x0f, 0x09, "", on_failure());
+    }
+  #endif
 }
 
 test(080_crc_error) {
@@ -589,11 +620,14 @@ test(120_write_flash) {
 
   assertMoreOrEqual(flash_size, 2U);
   if (full_random) {
-    // The bootloader requires a RCALL or RJMP instruction at address 0,
-    // so give it one
-    data[0] = 0x00;
-    data[1] = 0xC0;
-    for (uint16_t i = 2; i < flash_size; ++i)
+    uint16_t i = 0;
+    #if defined(TEST_SUBJECT_ATTINY)
+      // The bootloader requires a RCALL or RJMP instruction at address 0,
+      // so give it one
+      data[i++] = 0x00;
+      data[i++] = 0xC0;
+    #endif //defined(TEST_SUBJECT_ATTINY)
+    for (; i < flash_size; ++i)
       data[i] = random();
   }
 
@@ -648,27 +682,29 @@ test(130_invalid_writes) {
   assertTrue(write_flash_cmd(13, data, 13, &status, &reason));
   assertOk(status);
 
-  // If address 0/1 does not contain an RJMP/RCALL, it should return
-  // COMMAND_FAILED and reason=2. These are not required by the
-  // protocol, they just test the bootloader implementation
-  data[0] = 0x00;
-  data[1] = 0x00;
-  assertTrue(write_flash_cmd(0, data, 16, &status, &reason));
-  assertOk(status);
-  assertTrue(write_flash_cmd(16, data, 16, &status, &reason));
-  assertOk(status);
-  assertTrue(write_flash_cmd(32, data, 16, &status, &reason));
-  assertOk(status);
-  assertTrue(write_flash_cmd(48, data, 16, &status, &reason));
-  assertEqual(status, Status::COMMAND_FAILED);
-  assertEqual(reason, 2);
+  #if defined(TEST_SUBJECT_ATTINY)
+    // If address 0/1 does not contain an RJMP/RCALL, it should return
+    // COMMAND_FAILED and reason=2. These are not required by the
+    // protocol, they just test the bootloader implementation
+    data[0] = 0x00;
+    data[1] = 0x00;
+    assertTrue(write_flash_cmd(0, data, 16, &status, &reason));
+    assertOk(status);
+    assertTrue(write_flash_cmd(16, data, 16, &status, &reason));
+    assertOk(status);
+    assertTrue(write_flash_cmd(32, data, 16, &status, &reason));
+    assertOk(status);
+    assertTrue(write_flash_cmd(48, data, 16, &status, &reason));
+    assertEqual(status, Status::COMMAND_FAILED);
+    assertEqual(reason, 2);
 
-  // FINALIZE_FLASH should also fail with an invalid address 0/1
-  assertTrue(write_flash_cmd(0, data, 2, &status, &reason));
-  assertOk(status);
-  assertTrue(run_transaction(Commands::FINALIZE_FLASH, nullptr, 0, &status, &reason, READ_EXACTLY(1), READ_EXACTLY(1)));
-  assertEqual(status, Status::COMMAND_FAILED);
-  assertEqual(reason, 2);
+    // FINALIZE_FLASH should also fail with an invalid address 0/1
+    assertTrue(write_flash_cmd(0, data, 2, &status, &reason));
+    assertOk(status);
+    assertTrue(run_transaction(Commands::FINALIZE_FLASH, nullptr, 0, &status, &reason, READ_EXACTLY(1), READ_EXACTLY(1)));
+    assertEqual(status, Status::COMMAND_FAILED);
+    assertEqual(reason, 2);
+  #endif // defined(TEST_SUBJECT_ATTINY)
 }
 
 void runTests() {

@@ -31,6 +31,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
+#define TEST_SUBJECT_ATTINY
+//#define TEST_SUBJECT_STM32
+
 struct Status {
   enum {
     COMMAND_OK            = 0x00,
@@ -70,11 +73,20 @@ static const uint8_t MAX_MSG_LEN = 32;
 
 // Expected values
 static const uint16_t PROTOCOL_VERSION = 0x0101;
+#if defined(TEST_SUBJECT_ATTINY)
 static const uint8_t HARDWARE_TYPE = 0x01;
 static const uint8_t HARDWARE_COMPATIBLE_REVISION = 0x01;
 static const uint8_t HARDWARE_REVISION = 0x14;
-static const uint8_t BOOTLOADER_VERSION = 0x02;
 static const uint16_t AVAILABLE_FLASH_SIZE = 8192-2048-2;
+static const bool SUPPORTS_DISPLAY = true;
+#elif defined(TEST_SUBJECT_STM32)
+static const uint8_t HARDWARE_TYPE = 0x02;
+static const uint8_t HARDWARE_COMPATIBLE_REVISION = 0x10;
+static const uint8_t HARDWARE_REVISION = 0x10;
+static const uint16_t AVAILABLE_FLASH_SIZE = 65536-4096;
+static const bool SUPPORTS_DISPLAY = false;
+#endif
+static const uint8_t BOOTLOADER_VERSION = 0x02;
 
 // As returned by POWER_UP_DISPLAY
 static const uint8_t DISPLAY_CONTROLLER_TYPE = 0x01;
