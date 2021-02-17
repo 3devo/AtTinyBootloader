@@ -76,6 +76,42 @@ struct ReadLen {
 constexpr ReadLen READ_EXACTLY(uint8_t len) { return {len, true}; }
 constexpr ReadLen READ_UP_TO(uint8_t len) { return {len, false}; }
 
+void printHexByte(uint8_t b) {
+  if (b < 0x10) Serial.write('0');
+  Serial.print(b, HEX);
+}
+
+void printHexBuf(uint8_t *buf, size_t len) {
+  static const uint8_t LINE_LENGTH = 32;
+  static const uint8_t GROUP_LENGTH = 4;
+  if (len > LINE_LENGTH)
+    Serial.println();
+
+  size_t i = 0;
+  while (i < len) {
+    if (i != 0 && i % LINE_LENGTH == 0)
+      Serial.println();
+
+    if (len > LINE_LENGTH) {
+      if (i % LINE_LENGTH == 0) {
+        if (len > LINE_LENGTH) {
+          Serial.print(F("  "));
+          printHexByte(i >> 8);
+          printHexByte(i);
+          Serial.print(F(": "));
+        }
+      } else {
+        Serial.print(F(" "));
+      }
+    }
+    for (size_t b = 0; b < GROUP_LENGTH && i + b < len; ++b)
+        printHexByte(buf[i + b]);
+    i += GROUP_LENGTH;
+  }
+
+  Serial.println();
+}
+
 bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
   assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
   assertAck(bus.startWrite(cfg.curAddr),"", false);
@@ -422,7 +458,15 @@ test(110_power_up_display) {
 bool verify_flash(uint8_t *data, uint16_t len, uint8_t readlen) {
   uint16_t offset = 0;
   uint8_t i = 0;
-  auto on_failure = [&i, &offset]() {
+  uint8_t datain[readlen];
+  uint8_t nextlen;
+  auto on_failure = [&i, &offset, &data, &len, &datain, &nextlen]() {
+    Serial.print("data = ");
+    printHexBuf(data, len);
+    Serial.print("data@offset = ");
+    printHexBuf(data + offset, nextlen);
+    Serial.print("datain = ");
+    printHexBuf(datain, nextlen);
     Serial.print("offset = 0x");
     Serial.println(offset, HEX);
     Serial.print("i = 0x");
@@ -430,9 +474,8 @@ bool verify_flash(uint8_t *data, uint16_t len, uint8_t readlen) {
     return false;
   };
 
-  uint8_t datain[readlen];
   while (offset < len) {
-    uint8_t nextlen = min(readlen, len - offset);
+    nextlen = min(readlen, len - offset);
     uint8_t dataout[3] = {(uint8_t)(offset >> 8), (uint8_t)offset, nextlen};
     assertTrue(run_transaction_ok(Commands::READ_FLASH, dataout, sizeof(dataout), datain, READ_EXACTLY(nextlen)), "", on_failure());
     for (i = 0; i < nextlen; ++i)
