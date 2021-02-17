@@ -64,8 +64,13 @@ struct Cfg {
   uint8_t flashWear = FLASH_ONCE;
 
   // When non-zero, only write this much bytes to flash on each test, to
-  // speed up testing
+  // speed up testing. This needs to fit in RAM, so limit this when
+  // running on the Devoboard.
+  #if defined(__AVR__)
+  uint16_t maxWriteSize = 6144;
+  #else
   uint16_t maxWriteSize = 0;
+  #endif
 } cfg;
 
 struct ReadLen {
