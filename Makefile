@@ -14,6 +14,7 @@
 PROTOCOL_VERSION = 0x0101
 
 CPPSRC         = $(wildcard *.cpp)
+CPPSRC        += $(wildcard attiny/*.cpp)
 OBJ            = $(CPPSRC:.cpp=.o)
 LDSCRIPT       = linker-script.x
 MCU            = attiny841

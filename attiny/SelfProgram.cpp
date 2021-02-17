@@ -15,8 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "SelfProgram.h"
-#include "bootloader.h"
+#include "../SelfProgram.h"
+#include "../bootloader.h"
 
 #include <avr/io.h>
 #include <avr/boot.h>

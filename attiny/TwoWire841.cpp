@@ -17,7 +17,7 @@
 
 #if defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny441__)
 
-#include "TwoWire.h"
+#include "../TwoWire.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
