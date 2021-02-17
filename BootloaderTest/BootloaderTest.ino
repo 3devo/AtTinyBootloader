@@ -539,17 +539,22 @@ bool write_flash_cmd(uint16_t address, uint8_t *data, uint8_t len, uint8_t *stat
 
 bool write_flash(uint8_t *data, uint16_t len, uint8_t writelen, uint8_t *erase_count) {
   uint16_t offset = 0;
-  auto on_failure = [&offset]() {
+  auto on_failure = [&offset](int16_t reason = -1) {
     Serial.print("offset = 0x");
     Serial.println(offset, HEX);
+    if (reason >= 0) {
+      Serial.print("reason = 0x");
+      Serial.println(reason, HEX);
+    }
     return false;
   };
 
   while (offset < len) {
     uint8_t nextlen = min(writelen, len - offset);
-    uint8_t status, reason;
+    uint8_t status;
+    uint8_t reason = -1;
     assertTrue(write_flash_cmd(offset, data + offset, nextlen, &status, &reason), "", on_failure());
-    assertOk(status, "", on_failure());
+    assertOk(status, "", on_failure(reason));
     offset += nextlen;
   }
   assertTrue(run_transaction_ok(Commands::FINALIZE_FLASH, nullptr, 0, erase_count, READ_EXACTLY(1), READ_EXACTLY(1)), "", on_failure());
