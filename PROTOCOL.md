@@ -94,7 +94,7 @@ seeing a stop condition or only during the read just before sending its
 reply.
 
 The total clock stretching that may be applied by the slave during an
-entire transaction is 35ms. Having a maximum stretch time allows the
+entire transaction is 80ms. Having a maximum stretch time allows the
 master to detect a timeout and abort the transaction. The master is also
 allowed to stretch the clock, no bounds are imposed on that. The slave
 should not attempt to detect a timeout itself, but instead rely on the
