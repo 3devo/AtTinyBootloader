@@ -60,18 +60,31 @@ class PrintingSoftWire : private SoftWire {
     using SoftWire::setReadScl;
     using SoftWire::setDelay_us;
 
-    void printByte(uint8_t b, const char *sep = " ") {
+    void printByte(uint8_t b) {
       if (!print) return;
       if (b < 0x10) Serial.write('0');
       Serial.print(b, HEX);
-      Serial.print(sep);
     }
 
     void printStart(uint8_t address, bool write, bool repStart) {
       if (!print) return;
       Serial.print(repStart ? "Sr" : "S");
-      printByte(address, "");
-      Serial.print(write ? "+W " : "+R ");
+      printByte(address);
+      Serial.print(write ? "+W" : "+R");
+    }
+
+    result_t printResult(result_t res) {
+      if (!print) return res;
+      switch(res) {
+        case nack:
+          Serial.print("n");
+          break;
+        case timedOut:
+          Serial.print("t");
+          break;
+      }
+      Serial.print(" ");
+      return res;
     }
 
     void stop() {
@@ -85,9 +98,9 @@ class PrintingSoftWire : private SoftWire {
       printStart(a, true, started);
       if (!started) {
         started = true;
-        return SoftWire::startWrite(a);
+        return printResult(SoftWire::startWrite(a));
       } else {
-        return SoftWire::repeatedStartWrite(a);
+        return printResult(SoftWire::repeatedStartWrite(a));
       }
     }
 
@@ -95,26 +108,28 @@ class PrintingSoftWire : private SoftWire {
       printStart(a, false, started);
       if (!started) {
         started = true;
-        return SoftWire::startRead(a);
+        return printResult(SoftWire::startRead(a));
       } else {
-        return SoftWire::repeatedStartRead(a);
+        return printResult(SoftWire::repeatedStartRead(a));
       }
     }
 
     result_t llWrite(uint8_t b) {
       printByte(b);
-      return SoftWire::llWrite(b);
+      return printResult(SoftWire::llWrite(b));
     }
 
     result_t readThenAck(uint8_t& b) {
       result_t res = SoftWire::readThenAck(b);
       printByte(b);
+      printResult(res);
       return res;
     }
 
     result_t readThenNack(uint8_t& b) {
       result_t res = SoftWire::readThenNack(b);
       printByte(b);
+      printResult(res == ack ? nack : res);
       return res;
     }
   private:
