@@ -19,6 +19,9 @@
 #define BOARDS_H_
 
 #include <stdint.h>
+#if defined(__AVR__)
+	#include <avr/io.h>
+#endif
 
 struct Pin {
 	volatile uint8_t* port;
@@ -28,13 +31,16 @@ struct Pin {
 };
 
 #if defined(BOARD_TYPE_interfaceboard)
-	Pin PIN_3V3_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA2};
-	Pin PIN_BOOST_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA3};
-	Pin PIN_DISPLAY_RESET = {&PORTB, &DDRB, &PUEB, 1 << PB0};
+	const Pin PIN_3V3_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA2};
+	const Pin PIN_BOOST_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA3};
+	const Pin PIN_DISPLAY_RESET = {&PORTB, &DDRB, &PUEB, 1 << PB0};
 
 	const uint8_t INFO_HW_TYPE = 1;
 	const uint8_t DISPLAY_CONTROLLER_TYPE = 1;
 	#define HAVE_DISPLAY
+	#define NEED_TRAMPOLINE
+#elif defined(BOARD_TYPE_gphopper)
+	const uint8_t INFO_HW_TYPE = 2;
 #else
 	#error "No board type defined"
 #endif

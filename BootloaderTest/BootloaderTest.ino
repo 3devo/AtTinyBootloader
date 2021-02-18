@@ -212,7 +212,7 @@ test(010_general_call_reset) {
   }
 
   // After a reset, the display should be off
-  if (cfg.displayAttached && cmd == GeneralCallCommands::RESET) {
+  if (SUPPORTS_DISPLAY && cfg.displayAttached && cmd == GeneralCallCommands::RESET) {
     SoftWire::result_t res = bus.startWrite(DISPLAY_I2C_ADDRESS);
     bus.stop();
 
@@ -445,13 +445,19 @@ test(100_command_not_supported) {
 
 test(110_power_up_display) {
   uint8_t data[1];
-  assertTrue(run_transaction_ok(Commands::POWER_UP_DISPLAY, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
-  assertEqual(data[0], DISPLAY_CONTROLLER_TYPE);
+  uint8_t status;
+  assertTrue(run_transaction(Commands::POWER_UP_DISPLAY, nullptr, 0, &status, data, READ_EXACTLY(sizeof(data))));
+  if (SUPPORTS_DISPLAY) {
+    assertEqual(status, Status::COMMAND_OK);
+    assertEqual(data[0], DISPLAY_CONTROLLER_TYPE);
 
-  if (cfg.displayAttached) {
-    // See if the display responds to its address
-    assertAck(bus.startWrite(DISPLAY_I2C_ADDRESS));
-    bus.stop();
+    if (cfg.displayAttached) {
+      // See if the display responds to its address
+      assertAck(bus.startWrite(DISPLAY_I2C_ADDRESS));
+      bus.stop();
+    }
+  } else {
+    assertEqual(status, Status::COMMAND_NOT_SUPPORTED);
   }
 }
 

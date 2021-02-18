@@ -32,6 +32,9 @@
 #error "Incorrect FLASH_ERASE_SIZE"
 #endif
 
+#if FLASH_APP_OFFSET != 0
+#error "FLASH_APP_OFFSET not supported"
+#endif
 
 // The actual value is set by main(), to avoid the overhead gcc
 // generates for running a "constructor" to set this value

@@ -16,10 +16,14 @@
  */
 
 #include <string.h>
+#if defined(__AVR__)
 #include <avr/io.h>
 #include <avr/boot.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#elif defined(STM32)
+#include <libopencm3/stm32/desig.h>
+#endif
 #include <stdio.h>
 
 #include "Boards.h"
@@ -206,13 +210,14 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 		}
 		case Commands::GET_SERIAL_NUMBER:
 		{
+			if (len != 0)
+				return cmd_result(Status::INVALID_ARGUMENTS);
+
+			#if defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny441__)
 			// These are offsets into the device signature imprint table, which
 			// store the parts of the serial number (lot number, wafer number, x/y
 			// coordinates).
 			static const uint8_t PROGMEM serial_offset[] = {0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x15, 0x16, 0x17};
-
-			if (len != 0)
-				return cmd_result(Status::INVALID_ARGUMENTS);
 
 			if (maxLen < sizeof(serial_offset))
 				return cmd_result(Status::NO_REPLY);
@@ -220,6 +225,28 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 			for (uint8_t i = 0; i < sizeof(serial_offset); ++i)
 				dataout[i] = boot_signature_byte_get(pgm_read_byte(&serial_offset[i]));
 			return cmd_ok(sizeof(serial_offset));
+			#elif defined(STM32)
+			uint32_t uid[3];
+			if (maxLen < sizeof(uid))
+				return cmd_result(Status::NO_REPLY);
+
+			// Go through a temporary buffer since dataout
+			// is not 32-bit aligned and writing directly
+			// might also violate strict aliasing.
+			// Note that this returns the uid words in
+			// reverse order (decreasing address), so this
+			// ends up with bit of a surprising bit/byte
+			// order, but as long as it is consistent,
+			// that's ok (the uid bytes themselves do not
+			// have some kind of generic-to-specific order
+			// to preserve anyway).
+			desig_get_unique_id(uid);
+			memcpy(dataout, uid, sizeof(uid));
+
+			return cmd_ok(sizeof(uid));
+			#else
+			return cmd_result(Status::COMMAND_NOT_SUPPORTED);
+			#endif
 		}
 		case Commands::START_APPLICATION:
 			if (len != 0)

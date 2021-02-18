@@ -31,12 +31,15 @@
 //  /cygdrive/c/Program\ Files\ \(x86\)/Atmel/Atmel\ Toolchain/AVR8\ GCC/Native/3.4.1061/avr8-gnu-toolchain/bin/avr-objdump.exe -d Release/bootloader-attiny.elf
 
 
+#if defined(__AVR__)
 #include <avr/io.h>
 #include <avr/wdt.h>
+#endif
 #include "bootloader.h"
 #include "SelfProgram.h"
 #include <stdio.h>
 
+#if defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny441__)
 // This is a single instruction placed immediately before the bootloader.
 // The application code will overwrite this instruction with a jump to to the start of the application.
 void __attribute__((noinline)) __attribute__((naked)) __attribute__((section(".boot_trampoline"))) startApplication();
@@ -46,7 +49,6 @@ void startApplication() {
 	asm("rjmp __vectors");
 }
 
-#if defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny441__)
 // Store the fuse bits in a separate section of the elf file.
 // Note that fuse bits are inverted (0 enables the feature) so we must bitwise
 // and the masks together.
@@ -59,24 +61,46 @@ FUSES =
 	// BOD always on
 	.extended = FUSE_SELFPRGEN & FUSE_BODACT0 & FUSE_BODPD0
 };
+#elif defined(STM32)
+
+#if !defined(FLASH_BASE)
+// https://github.com/libopencm3/libopencm3-examples/issues/224
+#define FLASH_BASE                      (0x08000000U)
+#endif
+
+void startApplication() __attribute__((__noreturn__));
+void startApplication() {
+	const uint32_t *application = (uint32_t*)(FLASH_BASE + FLASH_APP_OFFSET);
+	const uint32_t top_of_stack = application[0];
+	const uint32_t reset_vector = application[1];
+
+	asm("msr msp, %0; bx %1;" : : "r"(top_of_stack), "r"(reset_vector));
+	__builtin_unreachable();
+}
+#else
+#error "Unsupported arch"
 #endif
 
 extern void uart_init();
 
 int main() {
+	#if defined(__AVR__)
 	// Disable watchdog, to prevent it triggering again
 	MCUSR &= ~(1 << WDRF);
 	wdt_disable();
+	#endif // defined(__AVR__)
 
+	#if defined(NEED_TRAMPOLINE)
 	// Set this value here, to avoid gcc generating a lot of
 	// overhead for running a constructor to set this value. It
 	// cannot be inline at compiletime, since the value is not known
 	// until link time.
 	SelfProgram::trampolineStart = (uint16_t)&startApplication * 2;
+	#endif // defined(NEED_TRAMPOLINE)
 
-	// Uncomment this to allow the use of printf on pin PA1 (TX
-	// only). See also usart.cpp. This needs a bigger bootloader
-	// area.
+	// Uncomment this to allow the use of printf on pin PA1 (ATTiny)
+	// or PA2 (stm32), TX only. See also usart.cpp. This needs a
+	// bigger bootloader area.
 	//uart_init();
 	//printf("Hello\n");
 

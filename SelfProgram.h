@@ -19,6 +19,7 @@
 #define SELFPROGRAM_H_
 
 #include <stdint.h>
+#include "Boards.h"
 
 void startApplication();
 
@@ -30,6 +31,7 @@ public:
 
 	static uint8_t writePage(uint16_t address, uint8_t *data, uint16_t len);
 
+	#if defined(NEED_TRAMPOLINE)
 	static void writeTrampoline(uint16_t instruction);
 
 	static uint16_t offsetRelativeJump(uint16_t instruction, int16_t offset);
@@ -39,6 +41,9 @@ public:
 	// Use a reference to make this an alias to trampolineStart for
 	// readability
 	static constexpr const uint16_t& applicationSize = trampolineStart;
+	#else
+	static constexpr const uint16_t applicationSize = APPLICATION_SIZE;
+	#endif // defined(NEED_TRAMPOLINE)
 
 	static uint8_t eraseCount;
 };
