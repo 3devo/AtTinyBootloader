@@ -11,33 +11,33 @@
 
   inline uint8_t _crc8_ccitt_update (uint8_t inCrc, uint8_t inData)
   {
-      uint8_t   i;
-      uint8_t   data;
+    uint8_t   i;
+    uint8_t   data;
 
-      data = inCrc ^ inData;
+    data = inCrc ^ inData;
 
-      for ( i = 0; i < 8; i++ )
+    for ( i = 0; i < 8; i++ )
+    {
+      if (( data & 0x80 ) != 0 )
       {
-          if (( data & 0x80 ) != 0 )
-          {
-              data <<= 1;
-              data ^= 0x07;
-          }
-          else
-          {
-              data <<= 1;
-          }
+        data <<= 1;
+        data ^= 0x07;
       }
-      return data;
+      else
+      {
+        data <<= 1;
+      }
+    }
+    return data;
   }
 
   inline uint16_t _crc_ccitt_update (uint16_t crc, uint8_t data)
   {
-          data ^= (crc & 0xff);
-          data ^= data << 4;
+    data ^= (crc & 0xff);
+    data ^= data << 4;
 
-          return ((((uint16_t)data << 8) | (crc >> 8)) ^ (uint8_t)(data >> 4)
-                  ^ ((uint16_t)data << 3));
+    return ((((uint16_t)data << 8) | (crc >> 8)) ^ (uint8_t)(data >> 4)
+            ^ ((uint16_t)data << 3));
   }
 #endif
 
