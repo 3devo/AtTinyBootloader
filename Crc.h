@@ -39,6 +39,20 @@
     return ((((uint16_t)data << 8) | (crc >> 8)) ^ (uint8_t)(data >> 4)
             ^ ((uint16_t)data << 3));
   }
+
+  inline uint16_t _crc16_update(uint16_t crc, uint8_t a) {
+    int i;
+
+    crc ^= a;
+    for (i = 0; i < 8; ++i) {
+      if (crc & 1)
+        crc = (crc >> 1) ^ 0xA001;
+      else
+        crc = (crc >> 1);
+    }
+
+    return crc;
+  }
 #endif
 
 /**
@@ -77,3 +91,5 @@ class Crc {
 
 using Crc8Ccitt = Crc<uint8_t, _crc8_ccitt_update, 0xff>;
 using Crc16Ccitt = Crc<uint16_t, _crc_ccitt_update, 0xffff>;
+// Called CRC16-IBM (or CRC16-ANSI or just CRC16) by wikipedia, used by ModBus
+using Crc16Ibm = Crc<uint16_t, _crc16_update, 0xffff>;
