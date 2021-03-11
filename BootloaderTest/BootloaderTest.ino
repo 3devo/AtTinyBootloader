@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "Constants.h"
 #include "Util.h"
+#include "Crc.h"
 #include "PrintingSoftWire.h"
 
 PrintingSoftWire bus(SDA, SCL);
@@ -124,7 +125,7 @@ bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor =
   for (uint8_t i = 0; i < len; ++i)
     assertAck(bus.llWrite(dataout[i]), "", false);
 
-  uint8_t crc = Crc().update(cmd).update(dataout, len).get();
+  uint8_t crc = Crc8Ccitt().update(cmd).update(dataout, len).get();
   assertAck(bus.llWrite(crc ^ crc_xor), "", false);
 
   if (!cfg.repStartAfterWrite)
@@ -166,7 +167,7 @@ bool read_status(uint8_t *status, uint8_t *datain, ReadLen okLen, ReadLen failLe
   uint8_t crc;
   assertAck(bus.readThenNack(crc), "", false);
 
-  uint8_t expectedCrc = Crc().update(*status).update(len).update(datain, len).get();
+  uint8_t expectedCrc = Crc8Ccitt().update(*status).update(len).update(datain, len).get();
   assertEqual(crc, expectedCrc, "", false);
   if (!cfg.repStartAfterRead)
     bus.stop();

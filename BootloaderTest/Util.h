@@ -29,7 +29,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <SoftWire.h>
 #include <ArduinoUnit.h>
-#include <util/crc16.h>
 #include "Constants.h"
 
 #pragma once
@@ -37,31 +36,3 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // are preserved
 #define assertAck(result, ...) assertEqual(result, SoftWire::ack, ## __VA_ARGS__)
 #define assertOk(status, ...) assertEqual(status, Status::COMMAND_OK, ## __VA_ARGS__)
-
-/**
- * Helper class to calculate crcs for transfers. To use it, create an
- * instance, call update() for each byte and/or buffer of bytes to
- * calculate the CRC over, and then call get() to get the result.
- * update() is chainable, so you can do e.g.:
- *
- *   uint8_t crc = Crc().update(first_byte).update(rest_of_bytes, len).get();
- */
-class Crc {
-  public:
-    Crc& update(uint8_t b) {
-      this->crc = _crc8_ccitt_update(this->crc, b);
-      return *this;
-    }
-
-    Crc& update(uint8_t *buf, uint8_t len) {
-      for (uint8_t i = 0; i < len; ++i)
-        this->update(buf[i]);
-      return *this;
-    }
-    uint8_t get() {
-      return this->crc;
-    }
-
-  private:
-    uint8_t crc = 0xff;
-};
