@@ -50,31 +50,28 @@ int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
 	if (maxLen < 3)
 		return 0;
 
+	cmd_result res(0);
+	// Check we received at least command and crc
 	if (len < 2) {
-		data[0] = Status::INVALID_TRANSFER;
-		len = 1;
+		res = cmd_result(Status::INVALID_TRANSFER);
 	} else {
 		uint8_t crc = Crc8Ccitt().update(data, len).get();
 		if (crc != 0) {
-			data[0] = Status::INVALID_CRC;
-			len = 1;
+			res = cmd_result(Status::INVALID_CRC);
 		} else {
 			// CRC checks out, process a command
-			cmd_result res = processCommand(data[0], data + 1, len - 2, data + 2, maxLen - 3);
+			res = processCommand(data[0], data + 1, len - 2, data + 2, maxLen - 3);
 			if (res.status == Status::NO_REPLY)
 				return 0;
-
-			data[0] = res.status;
-			len = res.len + 1;
 		}
 	}
 
-	data[1] = len - 1;
-	++len;
+	data[0] = res.status;
+	data[1] = res.len;
+	len = res.len + 2;
 
-	data[len] = Crc8Ccitt().update(data, len).get();
-	++len;
-
+	uint8_t crc = Crc8Ccitt().update(data, len).get();
+	data[len++] = crc;
 
 	return len;
 }
