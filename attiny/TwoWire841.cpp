@@ -17,37 +17,37 @@
 
 #if defined(__AVR_ATtiny841__) || defined(__AVR_ATtiny441__)
 
-#include "../TwoWire.h"
+#include "../Bus.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
 static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
 
-void TwoWireInit(uint8_t initialAddress, uint8_t initialBits) {
+void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 	initAddress = initialAddress;
 	// Create a mask with initialBits zeroes (address bits to match)
 	// followed by ones (address bits to ignore).
 	initMask = (0x7f >> initialBits);
 
-	TwoWireResetDeviceAddress();
+	BusResetDeviceAddress();
 	TWSCRB = _BV(TWHNM);
 
 	// Enable Data Interrupt, Address/Stop Interrupt, Two-Wire Interface, Stop Interrpt
 	TWSCRA = _BV(TWEN) | _BV(TWSIE);
 }
 
-void TwoWireDeinit() {
+void BusDeinit() {
 	TWSCRA = TWSCRB = TWSA = TWSAM = TWSD = 0;
 	TWSSRA = _BV(TWDIF) | _BV(TWASIF) | _BV(TWC);
 }
 
-void TwoWireSetDeviceAddress(uint8_t address) {
+void BusSetDeviceAddress(uint8_t address) {
 	TWSA = (address << 1) | 1;
 	TWSAM = 0;
 }
 
-void TwoWireResetDeviceAddress() {
+void BusResetDeviceAddress() {
 	// Set address and mask to listen for a range of addresses, and
 	// enable general call (address 0) recognition by setting TWSA0.
 	TWSA = (initAddress << 1) | 1;
@@ -81,7 +81,7 @@ static TWIState twiState = TWIStateIdle;
 
 
 
-void TwoWireUpdate() {
+void BusUpdate() {
 	uint8_t status = TWSSRA;
 	bool dataInterruptFlag = (status & _BV(TWDIF)); // Check whether the data interrupt flag is set
 	bool isAddressOrStop = (status & _BV(TWASIF)); // Get the TWI Address/Stop Interrupt Flag
@@ -100,7 +100,7 @@ void TwoWireUpdate() {
 	if (isAddressOrStop) {
 		// If we were previously in a write, then execute the callback and setup for a read.
 		if ((twiState == TWIStateWrite) and twiBufferLen != 0) {
-			twiBufferLen = TwoWireCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
+			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
 		}
 
 		// Send an ack unless a read is starting and there are no bytes to read.

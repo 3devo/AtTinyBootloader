@@ -27,7 +27,7 @@
 #include <stdio.h>
 
 #include "Boards.h"
-#include "TwoWire.h"
+#include "Bus.h"
 #include "BaseProtocol.h"
 #include "SelfProgram.h"
 #include "bootloader.h"
@@ -175,7 +175,7 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 			if (datain[1] != 0 && datain[1] != INFO_HW_TYPE)
 				return cmd_result(Status::NO_REPLY);
 
-			TwoWireSetDeviceAddress(datain[0]);
+			BusSetDeviceAddress(datain[0]);
 			return cmd_ok();
 
 		#ifdef HAVE_DISPLAY
@@ -302,12 +302,12 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 
 extern "C" {
 	void runBootloader() {
-		TwoWireInit(INITIAL_I2C_ADDRESS, INITIAL_I2C_BITS);
+		BusInit(INITIAL_ADDRESS, INITIAL_BITS);
 
 		while (!bootloaderExit) {
-			TwoWireUpdate();
+			BusUpdate();
 		}
 
-		TwoWireDeinit();
+		BusDeinit();
 	}
 }

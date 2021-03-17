@@ -15,17 +15,16 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TWOWIRE_H_
-#define TWOWIRE_H_
+#ifndef BUS_H_
+#define BUS_H_
 
 #include <stdint.h>
 
-void TwoWireUpdate();
-void TwoWireInit(uint8_t initialAddress, uint8_t initialBits = 7);
-void TwoWireDeinit();
-void TwoWireSetDeviceAddress(uint8_t address);
-void TwoWireResetDeviceAddress();
+void BusUpdate();
+void BusInit(uint8_t initialAddress, uint8_t initialBits = 7);
+void BusDeinit();
+void BusSetDeviceAddress(uint8_t address);
+void BusResetDeviceAddress();
 
-int TwoWireCallback(uint8_t address, uint8_t *buffer, uint8_t len, uint8_t maxLen);
-
-#endif /* TWOWIRE_H_ */
+int BusCallback(uint8_t address, uint8_t *buffer, uint8_t len, uint8_t maxLen);
+#endif /* BUS_H_ */

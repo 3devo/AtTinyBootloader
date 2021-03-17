@@ -19,12 +19,12 @@
 #include <libopencm3/stm32/i2c.h>
 #include <libopencm3/stm32/gpio.h>
 #include <stdio.h>
-#include "../TwoWire.h"
+#include "../Bus.h"
 
 static uint8_t initAddress = 0;
 static uint8_t initBits = 0;
 
-void TwoWireInit(uint8_t initialAddress, uint8_t initialBits) {
+void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 	initAddress = initialAddress;
 	initBits = initialBits;
 
@@ -45,14 +45,14 @@ void TwoWireInit(uint8_t initialAddress, uint8_t initialBits) {
 	i2c_set_speed(I2C1, i2c_speed_sm_100k, 16);
 	i2c_enable_stretching(I2C1);
 
-	TwoWireResetDeviceAddress();
+	BusResetDeviceAddress();
 
 	//addressing mode
 	i2c_set_7bit_addr_mode(I2C1);
 	i2c_peripheral_enable(I2C1);
 }
 
-void TwoWireDeinit() {
+void BusDeinit() {
 	i2c_reset(I2C1);
 
 	gpio_mode_setup(GPIOB, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO6 | GPIO7);
@@ -62,7 +62,7 @@ void TwoWireDeinit() {
 	rcc_periph_clock_disable(RCC_GPIOB);
 }
 
-void TwoWireSetDeviceAddress(uint8_t address) {
+void BusSetDeviceAddress(uint8_t address) {
 	// Enable single address
 	// TODO: If this is done when a start condition and/or address
 	// has already been received (i.e. with repeated start or a read
@@ -72,7 +72,7 @@ void TwoWireSetDeviceAddress(uint8_t address) {
 	I2C_OAR2(I2C1) = I2C_OAR2_OA2EN | (address << 1);
 }
 
-void TwoWireResetDeviceAddress() {
+void BusResetDeviceAddress() {
 	// Enable general call
 	I2C_CR1(I2C1) |= I2C_CR1_GCEN;
 
@@ -103,7 +103,7 @@ enum TWIState {
 
 static TWIState twiState = TWIStateIdle;
 
-void TwoWireUpdate() {
+void BusUpdate() {
 	// Uncomment this to enable debug prints in this function
 	#define printf(...) do {} while(0)
 	uint32_t isr = I2C_ISR(I2C1);
@@ -136,7 +136,7 @@ void TwoWireUpdate() {
 		printf("stop|repstart\n");
 		// If we were previously in a write, then execute the callback and setup for a read.
 		if (twiBufferLen != 0)
-			twiBufferLen = TwoWireCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
+			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
 		twiState = TWIStateIdle;
 	}
 	// Clear stop flag

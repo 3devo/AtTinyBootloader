@@ -21,7 +21,7 @@
 #elif defined(STM32)
 #include <libopencm3/cm3/scb.h>
 #endif
-#include "TwoWire.h"
+#include "Bus.h"
 #include "Crc.h"
 #include "BaseProtocol.h"
 
@@ -37,12 +37,12 @@ static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 		#endif
 
 	} else if (len >= 1 && data[0] == GeneralCallCommands::RESET_ADDRESS) {
-		TwoWireResetDeviceAddress();
+		BusResetDeviceAddress();
 	}
 	return 0;
 }
 
-int TwoWireCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
+int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
 	if (address == 0)
 		return handleGeneralCall(data, len, maxLen);
 
