@@ -46,8 +46,8 @@ int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
 	if (address == 0)
 		return handleGeneralCall(data, len, maxLen);
 
-	// Check that there is at least room for a status byte and a CRC
-	if (maxLen < 2)
+	// Check that there is at least room for a status, length and a CRC
+	if (maxLen < 3)
 		return 0;
 
 	if (len < 2) {
