@@ -840,9 +840,7 @@ test(120_write_flash) {
     skip();
     return;
   }
-  uint8_t hwinfo[5];
-  assertTrue(run_transaction_ok(Commands::GET_HARDWARE_INFO, nullptr, 0, hwinfo, READ_EXACTLY(sizeof(hwinfo))));
-  uint16_t flash_size = hwinfo[3] << 8 | hwinfo[4];
+  uint16_t flash_size = AVAILABLE_FLASH_SIZE;
 
   if (cfg.maxWriteSize && cfg.maxWriteSize < flash_size)
     flash_size = cfg.maxWriteSize;
