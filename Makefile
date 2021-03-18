@@ -123,7 +123,7 @@ default:
 	$(MAKE) all ARCH=attiny BUS=TwoWire BOARD_TYPE=interfaceboard CURRENT_HW_REVISION=0x14 COMPATIBLE_HW_REVISION=0x01
 	$(MAKE) all ARCH=stm32 BUS=Rs485 BOARD_TYPE=gphopper CURRENT_HW_REVISION=0x10 COMPATIBLE_HW_REVISION=0x10
 
-all: hex fuses size
+all: hex fuses size checksize
 
 hex: $(FILE_NAME).hex
 
@@ -154,6 +154,15 @@ $(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
 
 %.hex: %.elf
 	$(OBJCOPY) -j .text -j '.text.*' -j .data -O ihex $< $@
+
+%.bin: %.elf
+	$(OBJCOPY) -j .text -j '.text.*' -j .data -O binary $< $@
+
+checksize: $(FILE_NAME).bin
+	@if [ $$(stat -c '%s' $<) -gt $(BL_SIZE) ]; then \
+		echo "Compiled size too big, maybe adjust BL_SIZE in Makefile?"; \
+		false; \
+	fi
 
 # Rule to generate linker script
 ifdef OPENCM3_DIR
