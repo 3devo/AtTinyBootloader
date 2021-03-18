@@ -36,3 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // are preserved
 #define assertAck(result, ...) assertEqual(result, SoftWire::ack, ## __VA_ARGS__)
 #define assertOk(status, ...) assertEqual(status, Status::COMMAND_OK, ## __VA_ARGS__)
+#if defined(USE_RS485)
+   #define assertNoResponse(status, ...) do {uint8_t dummy; assertFalse(read_byte(&dummy, MAX_RESPONSE_TIME), ## __VA_ARGS__); } while (0);
+#endif

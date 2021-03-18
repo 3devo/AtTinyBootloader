@@ -34,6 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define TEST_SUBJECT_ATTINY
 //#define TEST_SUBJECT_STM32
 
+#define USE_I2C
+//#define USE_RS485
+
 struct Status {
   enum {
     COMMAND_OK            = 0x00,
@@ -62,8 +65,15 @@ struct Commands {
 };
 
 struct GeneralCallCommands {
-  static const uint8_t RESET = 0x06;
-  static const uint8_t RESET_ADDRESS = 0x04;
+  #if defined(USE_I2C)
+    static const uint8_t RESET = 0x06;
+    static const uint8_t RESET_ADDRESS = 0x04;
+  #elif defined(USE_RS485)
+    // These add 0x40 to the I2C general call commands so they en up
+    // in the 0x40-0x48 "user defined function codes" area.
+    static const uint8_t RESET = 0x46;
+    static const uint8_t RESET_ADDRESS = 0x44;
+  #endif
 };
 
 static const uint8_t GENERAL_CALL_ADDRESS = 0;
@@ -91,3 +101,13 @@ static const uint8_t BOOTLOADER_VERSION = 0x02;
 // As returned by POWER_UP_DISPLAY
 static const uint8_t DISPLAY_CONTROLLER_TYPE = 0x01;
 static const uint8_t DISPLAY_I2C_ADDRESS = 0x3C;
+
+#if defined(USE_RS485)
+static const uint32_t BAUD_RATE = 19200;
+static const int SERIAL_SETTING = SERIAL_8E1;
+static const int SERIAL_SETTING_INVERT_PARITY = SERIAL_8O1;
+static const int SERIAL_SETTING_NO_PARITY = SERIAL_8N1;
+static const uint32_t MAX_RESPONSE_TIME = 80000;
+static const uint32_t MAX_INTER_CHARACTER = 750;
+static const uint32_t MAX_INTER_FRAME = 1750;
+#endif

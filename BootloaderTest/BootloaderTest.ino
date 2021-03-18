@@ -27,15 +27,25 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <SoftWire.h>
 #include <ArduinoUnit.h>
 
 #include "Constants.h"
 #include "Util.h"
 #include "Crc.h"
-#include "PrintingSoftWire.h"
+#if defined(USE_I2C)
+  #include "PrintingSoftWire.h"
+#elif defined(USE_RS485)
+  #include "PrintingStream.h"
+#endif
 
+#if defined(USE_I2C)
 PrintingSoftWire bus(SDA, SCL);
+#elif defined(USE_RS485)
+HardwareSerial& busSerial = Serial3;
+PrintingStream bus(busSerial);
+#else
+#error "Must select one of USE_I2C or USE_RS485"
+#endif
 
 struct Cfg {
   // A single test is done using these values, then they are changed
@@ -118,61 +128,163 @@ void printHexBuf(uint8_t *buf, size_t len) {
   Serial.println();
 }
 
-bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
-  assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
-  assertAck(bus.startWrite(cfg.curAddr),"", false);
-  assertAck(bus.llWrite(cmd), "", false);
-  for (uint8_t i = 0; i < len; ++i)
-    assertAck(bus.llWrite(dataout[i]), "", false);
+#if defined(USE_I2C)
+  bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
+    assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
+    assertAck(bus.startWrite(cfg.curAddr),"", false);
+    assertAck(bus.llWrite(cmd), "", false);
+    for (uint8_t i = 0; i < len; ++i)
+      assertAck(bus.llWrite(dataout[i]), "", false);
 
-  uint8_t crc = Crc8Ccitt().update(cmd).update(dataout, len).get();
-  assertAck(bus.llWrite(crc ^ crc_xor), "", false);
+    uint8_t crc = Crc8Ccitt().update(cmd).update(dataout, len).get();
+    assertAck(bus.llWrite(crc ^ crc_xor), "", false);
 
-  if (!cfg.repStartAfterWrite)
-    bus.stop();
-  return true;
-}
-
-bool read_status(uint8_t *status, uint8_t *datain, ReadLen okLen, ReadLen failLen, uint8_t *actualLen = nullptr, bool skip_start = false) {
-  assertLessOrEqual(okLen.len + 3, MAX_MSG_LEN, "", false);
-  assertLessOrEqual(failLen.len + 3, MAX_MSG_LEN, "", false);
-  if (!skip_start) {
-    assertAck(bus.startRead(cfg.curAddr), "", false);
+    if (!cfg.repStartAfterWrite)
+      bus.stop();
+    return true;
   }
-  assertTrue(status != nullptr, "", false);
-  assertAck(bus.readThenAck(*status), "", false);
 
-  ReadLen expectedLen;
-  if (*status == Status::COMMAND_OK)
-    expectedLen = okLen;
-  else if (*status == Status::COMMAND_FAILED)
-    expectedLen = failLen;
-  else // All other errors have no data
-    expectedLen = READ_EXACTLY(0);
+  bool read_status(uint8_t *status, uint8_t *datain, ReadLen okLen, ReadLen failLen, uint8_t *actualLen = nullptr, bool skip_start = false) {
+    assertLessOrEqual(okLen.len + 3, MAX_MSG_LEN, "", false);
+    assertLessOrEqual(failLen.len + 3, MAX_MSG_LEN, "", false);
+    if (!skip_start) {
+      assertAck(bus.startRead(cfg.curAddr), "", false);
+    }
+    assertTrue(status != nullptr, "", false);
+    assertAck(bus.readThenAck(*status), "", false);
 
-  uint8_t len;
-  assertAck(bus.readThenAck(len), "", false);
+    ReadLen expectedLen;
+    if (*status == Status::COMMAND_OK)
+      expectedLen = okLen;
+    else if (*status == Status::COMMAND_FAILED)
+      expectedLen = failLen;
+    else // All other errors have no data
+      expectedLen = READ_EXACTLY(0);
 
-  if (actualLen)
-    *actualLen = len;
+    uint8_t len;
+    assertAck(bus.readThenAck(len), "", false);
 
-  if (expectedLen.exact)
-    assertEqual(len, expectedLen.len, "", false);
-  else
-    assertLessOrEqual(len, expectedLen.len, "", false);
+    if (actualLen)
+      *actualLen = len;
 
-  for (uint8_t i = 0; i < len; ++i)
-    assertAck(bus.readThenAck(datain[i]), "", false);
+    if (expectedLen.exact)
+      assertEqual(len, expectedLen.len, "", false);
+    else
+      assertLessOrEqual(len, expectedLen.len, "", false);
 
-  uint8_t crc;
-  assertAck(bus.readThenNack(crc), "", false);
+    for (uint8_t i = 0; i < len; ++i)
+      assertAck(bus.readThenAck(datain[i]), "", false);
 
-  uint8_t expectedCrc = Crc8Ccitt().update(*status).update(len).update(datain, len).get();
-  assertEqual(crc, expectedCrc, "", false);
-  if (!cfg.repStartAfterRead)
-    bus.stop();
-  return true;
-}
+    uint8_t crc;
+    assertAck(bus.readThenNack(crc), "", false);
+
+    uint8_t expectedCrc = Crc8Ccitt().update(*status).update(len).update(datain, len).get();
+    assertEqual(crc, expectedCrc, "", false);
+    if (!cfg.repStartAfterRead)
+      bus.stop();
+    return true;
+  }
+#elif defined(USE_RS485)
+  bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
+    assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
+    assertEqual(bus.read(), -1, F("pending data at start of command"), false);
+    bus.write(cfg.curAddr);
+    bus.write(cmd);
+    bus.write(dataout, len);
+
+    uint16_t crc = Crc16Ibm().update(cfg.curAddr).update(cmd).update(dataout, len).get();
+
+    bus.write((crc & 0xff) ^ crc_xor);
+    bus.write((crc >> 8) ^ crc_xor);
+    bus.flush();
+    assertEqual(bus.read(), -1, F("data received while writing command"), false);
+
+    // Ensure sufficient silence after last byte so the slave can start
+    // processing the message.
+    delayMicroseconds(MAX_INTER_FRAME);
+
+    return true;
+  }
+
+  bool write_command_with_parity_error(uint8_t cmd, uint8_t error_offset = 0) {
+    uint8_t data[] = { cfg.curAddr, cmd, 0, 0 };
+    uint16_t crc = Crc16Ibm().update(cfg.curAddr).update(cmd).get();
+    data[sizeof(data)-2] = crc;
+    data[sizeof(data)-1] = crc >> 8;
+
+    for (uint8_t i = 0; i < sizeof(data); ++i) {
+      if (i == error_offset) {
+        // Emulate parity error by inverting the parity setting
+        busSerial.end();
+        busSerial.begin(BAUD_RATE, SERIAL_SETTING_INVERT_PARITY);
+      }
+      bus.write(data[i]);
+      if (i == error_offset) {
+        busSerial.flush();
+        busSerial.end();
+        busSerial.begin(BAUD_RATE, SERIAL_SETTING);
+      }
+    }
+
+    return true;
+  }
+
+  bool read_byte(uint8_t *byte, uint32_t timeout) {
+    uint32_t start = micros();
+    while (micros() - start <= timeout) {
+      if (bus.available()) {
+        *byte = bus.read();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool read_status(uint8_t *status, uint8_t *datain, ReadLen okLen, ReadLen failLen, uint8_t *actualLen = nullptr, bool skip_start = false) {
+    assertLessOrEqual(okLen.len + 3, MAX_MSG_LEN, "", false);
+    assertLessOrEqual(failLen.len + 3, MAX_MSG_LEN, "", false);
+
+    uint8_t addr;
+    assertTrue(read_byte(&addr, MAX_RESPONSE_TIME), F("timeout waiting for response"), false);
+    assertEqual(addr, cfg.curAddr, F("unexpected address byte"), false);
+
+    assertTrue(status != nullptr, "", false);
+    assertTrue(read_byte(status, MAX_INTER_CHARACTER), "", false);
+
+    ReadLen expectedLen;
+    if (*status == Status::COMMAND_OK)
+      expectedLen = okLen;
+    else if (*status == Status::COMMAND_FAILED)
+      expectedLen = failLen;
+    else // All other errors have no data
+      expectedLen = READ_EXACTLY(0);
+
+    uint8_t len;
+    assertTrue(read_byte(&len, MAX_INTER_CHARACTER), "", false);
+
+    if (actualLen)
+      *actualLen = len;
+
+    if (expectedLen.exact)
+      assertEqual(len, expectedLen.len, "", false);
+    else
+      assertLessOrEqual(len, expectedLen.len, "", false);
+
+    for (uint8_t i = 0; i < len; ++i)
+      assertTrue(read_byte(&datain[i], MAX_INTER_CHARACTER), "", false);
+
+    uint16_t expectedCrc = Crc16Ibm().update(addr).update(*status).update(len).update(datain, len).get();
+
+    uint8_t crcl, crch;
+    assertTrue(read_byte(&crcl, MAX_INTER_CHARACTER), "", false);
+    assertTrue(read_byte(&crch, MAX_INTER_CHARACTER), "", false);
+    assertEqual(crch << 8 | crcl, expectedCrc, "", false);
+
+    bus.endOfTransaction();
+
+    return true;
+  }
+#endif
 
 bool run_transaction(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t *status, uint8_t *datain = nullptr, ReadLen okLen = READ_EXACTLY(0), ReadLen failLen = READ_EXACTLY(0), uint8_t *actualLen = nullptr) {
   assertTrue(write_command(cmd, dataout, len), "", false);
@@ -187,6 +299,41 @@ bool run_transaction_ok(uint8_t cmd, uint8_t *dataout = nullptr, uint8_t len = 0
   return true;
 }
 
+bool check_responds_to(uint8_t addr) {
+  auto on_failure = [addr]() {
+    Serial.print("addr = ");
+    Serial.println(addr);
+    return false;
+  };
+  uint8_t old = cfg.curAddr;
+  cfg.curAddr = addr;
+  uint8_t data[2];
+  bool result = run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, READ_EXACTLY(sizeof(data)));
+  cfg.curAddr = old;
+  assertTrue(result, F("no response"), on_failure());
+  return true;
+}
+
+bool check_no_response_to(uint8_t addr) {
+  auto on_failure = [addr]() {
+    Serial.print("addr = ");
+    Serial.println(addr);
+    return false;
+  };
+  #if defined(USE_I2C)
+  assertEqual(bus.startWrite(addr), SoftWire::nack, "", on_failure());
+  bus.stop();
+  #elif defined(USE_RS485)
+  uint8_t old = cfg.curAddr;
+  cfg.curAddr = addr;
+  bool result = write_command(Commands::GET_PROTOCOL_VERSION, nullptr, 0);
+  cfg.curAddr = old;
+  assertTrue(result, F("write_command failed"), on_failure());
+  assertNoResponse("", on_failure());
+  #endif
+  return true;
+}
+
 test(010_general_call_reset) {
   if (!cfg.resetAddr) {
     skip();
@@ -197,26 +344,34 @@ test(010_general_call_reset) {
   // them randomly (we can't tell the difference from the outside
   // anyway).
   uint8_t cmd = random(2) ? GeneralCallCommands::RESET : GeneralCallCommands::RESET_ADDRESS;
-  assertAck(bus.startWrite(GENERAL_CALL_ADDRESS));
-  assertAck(bus.llWrite(cmd));
-  bus.stop();
   uint8_t oldAddr = cfg.curAddr;
+
+  #if defined(USE_I2C)
+    // On I²C, a general call command has no CRC, so write it directly
+    assertAck(bus.startWrite(GENERAL_CALL_ADDRESS));
+    assertAck(bus.llWrite(cmd));
+    bus.stop();
+  #elif defined(USE_RS485)
+    // On RS485, a general call command is a full frame with CRC, so use
+    // write_command, but fake curAddr to use a different address
+    cfg.curAddr = GENERAL_CALL_ADDRESS;
+    assertTrue(write_command(cmd, nullptr, 0));
+  #endif
   cfg.curAddr = cfg.resetAddr;
   delay(100);
 
   if (oldAddr && (oldAddr < FIRST_ADDRESS || oldAddr > LAST_ADDRESS)) {
     // If the old address is set, but outside the default range, check
     // that it no longer responds
-    assertEqual(bus.startWrite(oldAddr), SoftWire::nack);
-    bus.stop();
+    assertTrue(check_no_response_to(oldAddr));
   }
 
   // Check for a response on the full address range
   for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
-    assertAck(bus.startWrite(i));
-    bus.stop();
+    assertTrue(check_responds_to(i));
   }
 
+  #if defined(USE_I2C)
   // After a reset, the display should be off
   if (SUPPORTS_DISPLAY && cfg.displayAttached && cmd == GeneralCallCommands::RESET) {
     SoftWire::result_t res = bus.startWrite(DISPLAY_I2C_ADDRESS);
@@ -234,13 +389,15 @@ test(010_general_call_reset) {
     }
     assertEqual(res, SoftWire::nack);
   }
+  #endif
 }
 
-test(020_ack) {
-  assertAck(bus.startWrite(cfg.curAddr));
-  bus.stop();
-}
-
+#if defined(USE_I2C)
+  test(020_ack) {
+    assertAck(bus.startWrite(cfg.curAddr));
+    bus.stop();
+  }
+#endif // defined(USE_I2C)
 
 test(030_protocol_version) {
   uint8_t data[2];
@@ -260,18 +417,26 @@ test(040_not_set_i2c_address) {
   uint8_t type = random(HARDWARE_TYPE + 1, 256);
   uint8_t data[2] = { cfg.setAddr, type };
   write_command(Commands::SET_ADDRESS, data, sizeof(data));
+  #if defined(USE_I2C)
+    // The command should be ignored, so a read command should not be acked
+    assertEqual(bus.startRead(cfg.curAddr), SoftWire::nack);
+    bus.stop();
 
-  // The command should be ignored, so a read command should not be acked
-  assertEqual(bus.startRead(cfg.curAddr), SoftWire::nack);
-  bus.stop();
+    // And neither on the new address
+    assertEqual(bus.startRead(cfg.setAddr), SoftWire::nack);
+    bus.stop();
+  #elif defined(USE_RS485)
+    // The command should be ignored, so there should be no response
+    assertNoResponse();
+  #endif
 
-  // And neither on the new address
-  assertEqual(bus.startRead(cfg.setAddr), SoftWire::nack);
-  bus.stop();
+  // Check for no response to a new request on the new address (unless
+  // the new address is the same as the old address or range).
+  if (cfg.setAddr != cfg.curAddr && cfg.setAddr < FIRST_ADDRESS && cfg.setAddr > LAST_ADDRESS)
+    assertTrue(check_no_response_to(cfg.setAddr));
 
-  // But it should still ack writes on the old address
-  assertAck(bus.startWrite(cfg.curAddr));
-  bus.stop();
+  // Check for response to a new request on the old address
+  assertTrue(check_responds_to(cfg.curAddr));
 }
 
 test(050_set_i2c_address) {
@@ -285,48 +450,59 @@ test(050_set_i2c_address) {
   uint8_t data[2] = { cfg.setAddr, type };
   write_command(Commands::SET_ADDRESS, data, sizeof(data));
 
-  // The response might be available at the old or new address, try the
-  // old address first, but it's ok if the old address nacks.
-  SoftWire::result_t res = bus.startRead(cfg.curAddr);
-  assertTrue(res == SoftWire::ack || res == SoftWire::nack);
-
-  // Update the address, use this one for now
   uint8_t oldAddr = cfg.curAddr;
-  cfg.curAddr = cfg.setAddr;
-  // If an ack is received on the old address, continue reading the
-  // reponse there (without sending another start). If not, read the
-  // response from the new address.
-  bool skip_start = (res == SoftWire::ack);
-  uint8_t status;
-  assertTrue(read_status(&status, NULL, READ_EXACTLY(0), READ_EXACTLY(0), NULL, skip_start));
-  assertOk(status);
+  #if defined(USE_I2C)
+    // The response might be available at the old or new address, try the
+    // old address first, but it's ok if the old address nacks.
+    SoftWire::result_t res = bus.startRead(cfg.curAddr);
+    assertTrue(res == SoftWire::ack || res == SoftWire::nack);
 
-  // If the address actually changed, check that no response is received
-  // from the old address
-  if (oldAddr != cfg.setAddr) {
-    assertEqual(bus.startRead(oldAddr), SoftWire::nack);
-    bus.stop();
-    assertEqual(bus.startWrite(oldAddr), SoftWire::nack);
-    bus.stop();
-  }
+    // Update the address, use this one for now
+    cfg.curAddr = cfg.setAddr;
+    // If an ack is received on the old address, continue reading the
+    // reponse there (without sending another start). If not, read the
+    // response from the new address.
+    bool skip_start = (res == SoftWire::ack);
+    uint8_t status;
+    assertTrue(read_status(&status, NULL, READ_EXACTLY(0), READ_EXACTLY(0), NULL, skip_start));
+    assertOk(status);
+
+    // If the address actually changed, check that no response is received
+    // from the old address
+    if (oldAddr != cfg.setAddr) {
+      assertEqual(bus.startRead(oldAddr), SoftWire::nack);
+      bus.stop();
+    }
+  #elif defined(USE_RS485)
+    // The response will always be returned using the old address
+    uint8_t status;
+    assertTrue(read_status(&status, NULL, READ_EXACTLY(0), READ_EXACTLY(0)));
+    assertOk(status);
+
+    cfg.curAddr = cfg.setAddr;
+  #endif
+
+  // If the address actually changed, check that it does not respond
+  // to a new request to the old address
+  if (oldAddr != cfg.setAddr)
+    assertTrue(check_no_response_to(oldAddr));
+
 
   for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
     // Check that it no longer response to the default range, except to
     // the new address if it happens to be in that range.
     if (i == cfg.curAddr)
-      assertAck(bus.startWrite(i));
+      assertTrue(check_responds_to(i));
     else
-      assertEqual(bus.startWrite(i), SoftWire::nack);
-    bus.stop();
+      assertTrue(check_no_response_to(i));
   }
 
   // Check that commands work on the new address
-  uint8_t protodata[2];
-  assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, protodata, READ_EXACTLY(sizeof(protodata))));
+  assertTrue(check_responds_to(cfg.curAddr));
 }
 
 
-
+#if defined(USE_I2C) // RS485 does not allow re-reading a response
 test(060_reread_protocol_version) {
   uint8_t data[2];
   assertTrue(run_transaction_ok(Commands::GET_PROTOCOL_VERSION, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
@@ -340,7 +516,9 @@ test(060_reread_protocol_version) {
   version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
 }
+#endif
 
+#if defined(USE_I2C) // RS485 does not have the master specify the read length
 test(065_short_long_read) {
   uint8_t status, len, dummy;
   uint8_t data[2];
@@ -382,6 +560,7 @@ test(065_short_long_read) {
   version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
 }
+#endif
 
 test(070_get_hardware_info) {
   uint8_t data[5];
@@ -464,10 +643,66 @@ test(080_crc_error) {
   uint8_t status;
   uint8_t crc_xor = random(1, 256);
   assertTrue(write_command(Commands::GET_HARDWARE_INFO, nullptr, 0, crc_xor));
-  // This expects a CRC error, so no data
-  assertTrue(read_status(&status, nullptr, READ_EXACTLY(0), READ_EXACTLY(0)));
-  assertEqual(status, Status::INVALID_CRC);
+
+  #if defined(USE_I2C)
+    // This expects a CRC error, so no data
+    assertTrue(read_status(&status, nullptr, READ_EXACTLY(0), READ_EXACTLY(0)));
+    assertEqual(status, Status::INVALID_CRC);
+  #elif defined(USE_RS485)
+    assertNoResponse();
+  #endif
 }
+
+#if defined(USE_RS485)
+test(081_no_parity) {
+  if (SERIAL_SETTING == SERIAL_SETTING_NO_PARITY) {
+    skip();
+    return;
+  }
+
+  // Messages transmitted without parity should not be accepted
+  busSerial.end();
+  busSerial.begin(BAUD_RATE, SERIAL_SETTING_NO_PARITY);
+
+  assertTrue(write_command(Commands::GET_HARDWARE_INFO, nullptr, 0));
+
+  busSerial.flush();
+  busSerial.end();
+  busSerial.begin(BAUD_RATE, SERIAL_SETTING);
+
+  assertNoResponse();
+}
+
+test(082_address_parity_error) {
+  if (SERIAL_SETTING == SERIAL_SETTING_NO_PARITY) {
+    skip();
+    return;
+  }
+
+  assertTrue(write_command_with_parity_error(Commands::GET_HARDWARE_INFO, 0));
+  assertNoResponse();
+}
+
+test(083_cmd_parity_error) {
+  if (SERIAL_SETTING == SERIAL_SETTING_NO_PARITY) {
+    skip();
+    return;
+  }
+
+  assertTrue(write_command_with_parity_error(Commands::GET_HARDWARE_INFO, 1));
+  assertNoResponse();
+}
+
+test(084_crc_parity_error) {
+  if (SERIAL_SETTING == SERIAL_SETTING_NO_PARITY) {
+    skip();
+    return;
+  }
+
+  assertTrue(write_command_with_parity_error(Commands::GET_HARDWARE_INFO, 2));
+  assertNoResponse();
+}
+#endif
 
 test(100_command_not_supported) {
   uint8_t cmd = Commands::END_OF_COMMANDS;
@@ -485,14 +720,18 @@ test(110_power_up_display) {
   uint8_t status;
   assertTrue(run_transaction(Commands::POWER_UP_DISPLAY, nullptr, 0, &status, data, READ_EXACTLY(sizeof(data))));
   if (SUPPORTS_DISPLAY) {
-    assertEqual(status, Status::COMMAND_OK);
-    assertEqual(data[0], DISPLAY_CONTROLLER_TYPE);
+    #if defined (USE_I2C)
+      assertEqual(status, Status::COMMAND_OK);
+      assertEqual(data[0], DISPLAY_CONTROLLER_TYPE);
 
-    if (cfg.displayAttached) {
-      // See if the display responds to its address
-      assertAck(bus.startWrite(DISPLAY_I2C_ADDRESS));
-      bus.stop();
-    }
+      if (cfg.displayAttached) {
+        // See if the display responds to its address
+        assertAck(bus.startWrite(DISPLAY_I2C_ADDRESS));
+        bus.stop();
+      }
+    #else
+      fail();
+    #endif
   } else {
     assertEqual(status, Status::COMMAND_NOT_SUPPORTED);
   }
@@ -653,8 +892,13 @@ test(120_write_flash) {
   assertTrue(write_and_verify_flash(data, flash_size, 16, 3, &erase_count));
   assertEqual(erase_count, 0);
   // Max write and read size
+  #if defined (USE_I2C)
   uint8_t writelen = MAX_MSG_LEN - 4; // cmd, 2xaddr, crc
-  uint8_t readlen = MAX_MSG_LEN - 3; // status, len, 2xaddr
+  uint8_t readlen = MAX_MSG_LEN - 3; // status, len, crc
+  #elif defined (USE_RS485)
+  uint8_t writelen = MAX_MSG_LEN - 6; // addr, cmd, 2xaddr, 2xcrc
+  uint8_t readlen = MAX_MSG_LEN - 5; // addr, status, len, 2xcrc
+  #endif
   assertTrue(write_and_verify_flash(data, flash_size, writelen, readlen, &erase_count));
   assertEqual(erase_count, 0);
   // Random sizes
@@ -814,44 +1058,49 @@ void runRandomTest() {
   runTests();
 }
 
-#define DDR DDRD
-#define PIN PIND
-#define SCL_BIT (1 << PD0)
-#define SDA_BIT (1 << PD1)
+#if defined(USE_I2C)
+  #define DDR DDRD
+  #define PIN PIND
+  #define SCL_BIT (1 << PD0)
+  #define SDA_BIT (1 << PD1)
+#endif // defined(USE_I2C)
 
 void setup() {
   Serial.begin(115200);
 
-  bus.begin();
-  // In case we were reset halfway through a transfer, read a dummy byte
-  // and send a nack to make sure any active slave drops off the bus.
-  uint8_t dummy;
-  bus.readThenNack(dummy);
-  bus.stop();
+  #if defined(USE_I2C)
+    bus.begin();
+    // In case we were reset halfway through a transfer, read a dummy byte
+    // and send a nack to make sure any active slave drops off the bus.
+    uint8_t dummy;
+    bus.readThenNack(dummy);
+    bus.stop();
 
-  // Check the macros above at runtime, unfortunately these
-  // digitalPinTo* macros do not work at compiletime.
-  if (&DDR != portModeRegister(digitalPinToPort(bus.getScl()))
-      || &DDR != portModeRegister(digitalPinToPort(bus.getSda()))
-      || SCL_BIT != digitalPinToBitMask(bus.getScl())
-      || SDA_BIT != digitalPinToBitMask(bus.getSda())
-  ) {
-    Serial.println("Incorrect pin mapping");
-    while(true) /* nothing */;
-  }
+    // Check the macros above at runtime, unfortunately these
+    // digitalPinTo* macros do not work at compiletime.
+    if (&DDR != portModeRegister(digitalPinToPort(bus.getScl()))
+        || &DDR != portModeRegister(digitalPinToPort(bus.getSda()))
+        || SCL_BIT != digitalPinToBitMask(bus.getScl())
+        || SDA_BIT != digitalPinToBitMask(bus.getSda())
+    ) {
+      Serial.println("Incorrect pin mapping");
+      while(true) /* nothing */;
+    }
+    // These assume that pullups are disabled, so the PORT register is not
+    // touched.
+    bus.setSetSclLow([](const SoftWire *) { DDR |= SCL_BIT; });
+    bus.setSetSclHigh([](const SoftWire *) { DDR &= ~SCL_BIT; });
+    bus.setSetSdaLow([](const SoftWire *) { DDR |= SDA_BIT; });
+    bus.setSetSdaHigh([](const SoftWire *) { DDR &= ~SDA_BIT; });
+    bus.setReadScl([](const SoftWire *) { return (uint8_t)(PIN & SCL_BIT); });
+    bus.setReadSda([](const SoftWire *) { return (uint8_t)(PIN & SDA_BIT); });
 
-  // These assume that pullups are disabled, so the PORT register is not
-  // touched.
-  bus.setSetSclLow([](const SoftWire *) { DDR |= SCL_BIT; });
-  bus.setSetSclHigh([](const SoftWire *) { DDR &= ~SCL_BIT; });
-  bus.setSetSdaLow([](const SoftWire *) { DDR |= SDA_BIT; });
-  bus.setSetSdaHigh([](const SoftWire *) { DDR &= ~SDA_BIT; });
-  bus.setReadScl([](const SoftWire *) { return (uint8_t)(PIN & SCL_BIT); });
-  bus.setReadSda([](const SoftWire *) { return (uint8_t)(PIN & SDA_BIT); });
-
-  // Run as fast as possible. With zero delay, the above direct pin
-  // access results in about 12us clock period at 16Mhz
-  bus.setDelay_us(0);
+    // Run as fast as possible. With zero delay, the above direct pin
+    // access results in about 12us clock period at 16Mhz
+    bus.setDelay_us(0);
+  #elif defined(USE_RS485)
+    busSerial.begin(BAUD_RATE, SERIAL_8E1);
+  #endif
 
   Serial.println();
   Serial.println("****************************");
