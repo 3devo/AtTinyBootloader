@@ -14,7 +14,8 @@
 PROTOCOL_VERSION = 0x0101
 
 CPPSRC         = $(wildcard *.cpp)
-CPPSRC        += $(wildcard $(ARCH)/*.cpp)
+CPPSRC        += $(ARCH)/SelfProgram.cpp $(ARCH)/uart.cpp
+CPPSRC        += $(ARCH)/$(BUS).cpp
 OBJ            = $(CPPSRC:.cpp=.o)
 ifeq ($(ARCH),attiny)
 LDSCRIPT       = linker-script.x
@@ -56,6 +57,11 @@ CXXFLAGS      += -DFLASH_APP_OFFSET=$(FLASH_APP_OFFSET)
 CXXFLAGS      += -DPROTOCOL_VERSION=$(PROTOCOL_VERSION) -DBOARD_TYPE_$(BOARD_TYPE)
 CXXFLAGS      += -DHARDWARE_REVISION=$(CURRENT_HW_REVISION) -DHARDWARE_COMPATIBLE_REVISION=$(COMPATIBLE_HW_REVISION)
 CXXFLAGS      += -DBL_VERSION=$(BL_VERSION)
+ifeq ($(BUS),TwoWire)
+CXXFLAGS      += -DUSE_I2C
+else ifeq ($(BUS),Rs485)
+CXXFLAGS      += -DUSE_RS485
+endif
 
 LDFLAGS        =
 # Use a custom linker script
@@ -113,9 +119,9 @@ endif
 .INTERMEDIATE: $(OBJ)
 
 default:
-	$(MAKE) all ARCH=attiny BOARD_TYPE=interfaceboard CURRENT_HW_REVISION=0x13 COMPATIBLE_HW_REVISION=0x01
-	$(MAKE) all ARCH=attiny BOARD_TYPE=interfaceboard CURRENT_HW_REVISION=0x14 COMPATIBLE_HW_REVISION=0x01
-	$(MAKE) all ARCH=stm32 BOARD_TYPE=gphopper CURRENT_HW_REVISION=0x10 COMPATIBLE_HW_REVISION=0x10
+	$(MAKE) all ARCH=attiny BUS=TwoWire BOARD_TYPE=interfaceboard CURRENT_HW_REVISION=0x13 COMPATIBLE_HW_REVISION=0x01
+	$(MAKE) all ARCH=attiny BUS=TwoWire BOARD_TYPE=interfaceboard CURRENT_HW_REVISION=0x14 COMPATIBLE_HW_REVISION=0x01
+	$(MAKE) all ARCH=stm32 BUS=Rs485 BOARD_TYPE=gphopper CURRENT_HW_REVISION=0x10 COMPATIBLE_HW_REVISION=0x10
 
 all: hex fuses size
 
