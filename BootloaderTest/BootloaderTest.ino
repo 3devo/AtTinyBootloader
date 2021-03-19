@@ -1048,7 +1048,7 @@ void runFixedTests() {
 
   // Run the tests for all allowed I2c addresses, without changing the
   // address
-  for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
+  for (uint8_t i = FIRST_ADDRESS; i <= LAST_ADDRESS; ++i) {
       cfg.resetAddr = i;
       cfg.setAddr = 0;
       runTests();
