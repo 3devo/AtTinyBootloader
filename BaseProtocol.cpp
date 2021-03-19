@@ -27,7 +27,7 @@
 #include "Boards.h"
 
 static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
-	if (len >= 1 && data[0] == GeneralCallCommands::RESET) {
+	if (len == 1 && data[0] == GeneralCallCommands::RESET) {
 		#if defined(__AVR__)
 		wdt_enable(WDTO_15MS);
 		while(true) /* wait */;
@@ -37,7 +37,7 @@ static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 		#error "Unsupported arch"
 		#endif
 
-	} else if (len >= 1 && data[0] == GeneralCallCommands::RESET_ADDRESS) {
+	} else if (len == 1 && data[0] == GeneralCallCommands::RESET_ADDRESS) {
 		BusResetDeviceAddress();
 	}
 	return 0;
