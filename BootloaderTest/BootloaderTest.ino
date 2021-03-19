@@ -42,11 +42,11 @@ struct Cfg {
 
   // Address to use after general call reset. If 0, no reset happens.
   uint8_t resetAddr = FIRST_ADDRESS;
-  // Address to use for SET_I2C_ADDRESS. If 0, no set happens.
+  // Address to use for SET_ADDRESS. If 0, no set happens.
   uint8_t setAddr = 0;
   // Address to use for all tests. Overwritten by general call reset and
-  // SET_I2C_ADDRESS
-  uint8_t curAddr = 0;
+  // SET_ADDRESS
+  uint8_t curAddr = 0x0;
 
   bool repStartAfterWrite = false;
   bool repStartAfterRead = false;
@@ -253,7 +253,7 @@ test(040_not_set_i2c_address) {
   // hardware type is given
   uint8_t type = random(HARDWARE_TYPE + 1, 256);
   uint8_t data[2] = { cfg.setAddr, type };
-  write_command(Commands::SET_I2C_ADDRESS, data, sizeof(data));
+  write_command(Commands::SET_ADDRESS, data, sizeof(data));
 
   // The command should be ignored, so a read command should not be acked
   assertEqual(bus.startRead(cfg.curAddr), SoftWire::nack);
@@ -277,7 +277,7 @@ test(050_set_i2c_address) {
   // Randomly use either the wildcard, or specific selector
   uint8_t type = random(2) ? 0x00 : HARDWARE_TYPE;
   uint8_t data[2] = { cfg.setAddr, type };
-  write_command(Commands::SET_I2C_ADDRESS, data, sizeof(data));
+  write_command(Commands::SET_ADDRESS, data, sizeof(data));
 
   // The response might be available at the old or new address, try the
   // old address first, but it's ok if the old address nacks.

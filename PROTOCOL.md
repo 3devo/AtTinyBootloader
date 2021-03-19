@@ -107,7 +107,7 @@ Instead of responding to a single address, the slave will respond to a
 range of different addresses. Even though this increases the chance of
 one of these addresses colliding with other devices in the system, there
 is only a small chance that *all* of these addresses collide. The
-protocol includes a `SET_I2C_ADDRESS` command that makes the slave
+protocol includes a `SET_ADDRESS` command that makes the slave
 respond to just a single address, after which all other addresses can be
 used as normal without conflicts.
 
@@ -147,7 +147,7 @@ command).
 
 Additionally, the following rules apply:
  - All future version of this protocol, should implement at least the
-   `GET_PROTOCOL_VERSION`, `SET_I2C_ADDRESS` and, if appropriate, the
+   `GET_PROTOCOL_VERSION`, `SET_ADDRESS` and, if appropriate, the
    `POWER_UP_DISPLAY` commands, as specified in the 1.0 version of this
    protocol. All other commands can be changed in any way (including
    different framing, checksums, etc.), provided the protocol version is
@@ -193,7 +193,7 @@ section elsewhere in this document).
 However, it is encouraged for the application to use the same framing
 format (write/read pairs, checksum, timeout constraints, command and
 status codes, etc.). Any commands that make sense (e.g.
-`SET_I2C_ADDRESS`) can also be implemented, new commands should be
+`SET_ADDRESS`) can also be implemented, new commands should be
 defined in the range reserved for application commands.
 
 General call handling
@@ -207,10 +207,10 @@ a command byte. No additional framing (e.g. no CRC) happens, and no
 reply is read in response to the command.
 
 The reset address command (0x04) should revert the effect of the
-`SET_I2C_ADDRESS` command and make the bootloader respond to the default
-I²C addresses again. If the application also implements
-`SET_I2C_ADDRESS` or something similar, it is recommended to also
-implement the reset address command.
+`SET_ADDRESS` command and make the bootloader respond to the default
+addresses again. If the application also implements `SET_ADDRESS` or
+something similar, it is recommended to also implement the reset address
+command.
 
 The reset command (0x06) should do the same, but also do a hardware
 reset of the slave (which should start the bootloader again).
@@ -228,7 +228,7 @@ The base protocol defines these commands:
 | Value       | Meaning
 |-------------|---------
 | 0x00        | `GET_PROTOCOL_VERSION`
-| 0x01        | `SET_I2C_ADDRESS`
+| 0x01        | `SET_ADDRESS`
 | 0x02        | `POWER_UP_DISPLAY`
 | 0x03        | `GET_HARDWARE_INFO`
 | 0x04        | `GET_SERIAL_NUMBER`
@@ -262,15 +262,15 @@ this version number.
 | 1     | Minor version
 | 1     | CRC
 
-`SET_I2C_ADDRESS` command
+`SET_ADDRESS` command
 -------------------------
-This command allows changing the I2c address, to prevent conflicts with
-other I²C devices.
+This command allows changing the address, to prevent conflicts with
+other devices.
 
 | Bytes | Command field
 |-------|-------------------------------
-| 1     | Cmd: `SET_I2C_ADDRESS` (0x01)
-| 1     | I2c address to use
+| 1     | Cmd: `SET_ADDRESS` (0x01)
+| 1     | Address to use
 | 1     | Hardware type
 | 1     | CRC
 

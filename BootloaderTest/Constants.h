@@ -45,7 +45,7 @@ struct Status {
 struct Commands {
   enum {
     GET_PROTOCOL_VERSION  = 0x00,
-    SET_I2C_ADDRESS       = 0x01,
+    SET_ADDRESS           = 0x01,
     POWER_UP_DISPLAY      = 0x02,
     GET_HARDWARE_INFO     = 0x03,
     GET_SERIAL_NUMBER     = 0x04,
