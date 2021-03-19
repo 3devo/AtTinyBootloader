@@ -501,6 +501,30 @@ test(050_set_i2c_address) {
   assertTrue(check_responds_to(cfg.curAddr));
 }
 
+test(055_too_long_general_call_reset) {
+  if (!cfg.resetAddr
+      || (cfg.curAddr >= FIRST_ADDRESS && cfg.curAddr <= LAST_ADDRESS)
+      || BOOTLOADER_VERSION <= 0x02
+  ) {
+    // If we're already using a default address, we can't tell if the
+    // reset was processed or not. Also, version 2 and below would still
+    // respond to these too long messages, so skip there too.
+    skip();
+    return;
+  }
+
+  // This just writes a full command frame with an extra byte. On RS485,
+  // this results in one extra byte, on I²C the CRC byte will be a
+  // second extra byte, which is ok.
+  uint8_t oldAddr = cfg.curAddr;
+  cfg.curAddr = GENERAL_CALL_ADDRESS;
+  uint8_t dummy = 0;
+  assertTrue(write_command(GeneralCallCommands::RESET_ADDRESS, &dummy, 1));
+  cfg.curAddr = oldAddr;
+
+  // Then check it still responds to the old address
+  assertTrue(check_responds_to(oldAddr));
+}
 
 #if defined(USE_I2C) // RS485 does not allow re-reading a response
 test(060_reread_protocol_version) {
