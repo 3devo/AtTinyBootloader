@@ -146,7 +146,7 @@ clean:
 $(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
-%.o: %.cpp
+%.o: %.cpp Makefile
 	$(CC) $(CXXFLAGS) -MMD -MP -c -o $@ $<
 
 %.lst: %.elf
