@@ -38,7 +38,7 @@ BL_SIZE             = 4096
 endif
 
 VERSION_SIZE   = 4
-BL_VERSION     = 2
+BL_VERSION     = 3
 
 CXXFLAGS       =
 CXXFLAGS      += -g3 -std=gnu++11

@@ -96,7 +96,7 @@ static const uint8_t HARDWARE_REVISION = 0x10;
 static const uint16_t AVAILABLE_FLASH_SIZE = 65536-4096;
 static const bool SUPPORTS_DISPLAY = false;
 #endif
-static const uint8_t BOOTLOADER_VERSION = 0x02;
+static const uint8_t BOOTLOADER_VERSION = 0x03;
 
 // As returned by POWER_UP_DISPLAY
 static const uint8_t DISPLAY_CONTROLLER_TYPE = 0x01;
