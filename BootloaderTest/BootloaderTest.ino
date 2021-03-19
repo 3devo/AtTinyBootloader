@@ -1042,9 +1042,6 @@ void runFixedTests() {
   // Change address to a low address
   cfg.setAddr = 0x01;
   runTests();
-  // Change address to the same as used for the set address command
-  cfg.setAddr = cfg.curAddr;
-  runTests();
   // Change address to another address inside the range
   cfg.setAddr = LAST_ADDRESS;
   runTests();
