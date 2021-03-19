@@ -1029,13 +1029,6 @@ void runFixedTests() {
   cfg.repStartAfterRead = false;
   cfg.setAddr = 0;
 
-  // Run the tests for all allowed I2c addresses, without changing the
-  // address
-  for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
-      cfg.resetAddr = i;
-      runTests();
-  }
-
   // Pick a random address for the rest of these tests (excluding
   // LAST_ADDRESS)
   cfg.resetAddr = random(FIRST_ADDRESS, LAST_ADDRESS);
@@ -1052,8 +1045,14 @@ void runFixedTests() {
   cfg.resetAddr = 0;
   cfg.setAddr = 0x7b;
   runTests();
-  // And do general call resets again
-  cfg.resetAddr = random(FIRST_ADDRESS, LAST_ADDRESS);
+
+  // Run the tests for all allowed I2c addresses, without changing the
+  // address
+  for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
+      cfg.resetAddr = i;
+      cfg.setAddr = 0;
+      runTests();
+  }
 
   // Test changing the address to each possible address (except address
   // 0, but including other reserved addresses for simplicity). Skip the
