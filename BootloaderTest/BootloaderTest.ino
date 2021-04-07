@@ -49,6 +49,15 @@ PrintingStream bus(busSerial);
 #error "Must select one of USE_I2C or USE_RS485"
 #endif
 
+// AVR defines this as a macro, STM32 uses std::min, but the latter
+// needs matched types (or explicit type parameter), so it is simpler to
+// just define this macro here.
+// XXX: This is an imperfect macro, since it evaluates its parameters
+// multiple times.
+#ifndef min
+#define min(a, b) (a < b ? a : b)
+#endif
+
 struct Cfg {
   // A single test is done using these values, then they are changed
   // into various variations
