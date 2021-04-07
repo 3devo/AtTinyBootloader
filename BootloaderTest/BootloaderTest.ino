@@ -41,7 +41,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #if defined(USE_I2C)
 PrintingSoftWire bus(SDA, SCL);
 #elif defined(USE_RS485)
-HardwareSerial& busSerial = Serial3;
+// This assumes running tests on STM32, which allows defining custom
+// serial instances based on pin numbers
+HardwareSerial busSerial(RS485_RX_PIN, RS485_TX_PIN);
 PrintingStream bus(busSerial);
 #else
 #error "Must select one of USE_I2C or USE_RS485"

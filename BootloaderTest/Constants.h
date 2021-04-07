@@ -110,4 +110,11 @@ static const int SERIAL_SETTING_NO_PARITY = SERIAL_8N1;
 static const uint32_t MAX_RESPONSE_TIME = 80000;
 static const uint32_t MAX_INTER_CHARACTER = 750;
 static const uint32_t MAX_INTER_FRAME = 1750;
+#if defined(ARDUINO_STM32_GP20_MAINBOARD)
+static const uint16_t RS485_RX_PIN = PA10;
+static const uint16_t RS485_TX_PIN = PB6;
+static const uint16_t RS485_DE_PIN = PB5;
+#else
+#error "Unknown board to run tests on"
 #endif
+#endif // defined(USE_RS485)
