@@ -226,24 +226,25 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 				dataout[i] = boot_signature_byte_get(pgm_read_byte(&serial_offset[i]));
 			return cmd_ok(sizeof(serial_offset));
 			#elif defined(STM32)
-			uint32_t uid[3];
-			if (maxLen < sizeof(uid))
+			const size_t id_size = 12;
+			if (maxLen < id_size)
 				return cmd_result(Status::NO_REPLY);
 
-			// Go through a temporary buffer since dataout
-			// is not 32-bit aligned and writing directly
-			// might also violate strict aliasing.
-			// Note that this returns the uid words in
-			// reverse order (decreasing address), so this
-			// ends up with bit of a surprising bit/byte
-			// order, but as long as it is consistent,
-			// that's ok (the uid bytes themselves do not
-			// have some kind of generic-to-specific order
-			// to preserve anyway).
-			desig_get_unique_id(uid);
-			memcpy(dataout, uid, sizeof(uid));
+			// This access the id bytes directly rather than
+			// using the desig_get_unique_id libopencm3
+			// function, in order to use byte addressing
+			// (word addressing requires dataout to be
+			// aligned) and so we can reverse the bytes
+			// (rather than the words) so the result has all
+			// bytes in big endian order.
+			// Note that that G030 does not document these
+			// bytes, but they seem to be available
+			// regardless (G030 seems to use the same core
+			// die as G031)
+			for (uint8_t i = 0; i < id_size; ++i)
+				dataout[i] = ((uint8_t*)DESIG_UNIQUE_ID_BASE)[id_size - i - 1];
 
-			return cmd_ok(sizeof(uid));
+			return cmd_ok(id_size);
 			#else
 			return cmd_result(Status::COMMAND_NOT_SUPPORTED);
 			#endif
