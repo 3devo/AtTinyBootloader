@@ -190,6 +190,7 @@ void printHexBuf(uint8_t *buf, size_t len) {
   bool write_command(uint8_t cmd, uint8_t *dataout, uint8_t len, uint8_t crc_xor = 0) {
     assertLessOrEqual(len + 2, MAX_MSG_LEN, "", false);
     assertEqual(bus.read(), -1, F("pending data at start of command"), false);
+    digitalWrite(RS485_DE_PIN, HIGH);
     bus.write(cfg.curAddr);
     bus.write(cmd);
     bus.write(dataout, len);
@@ -199,6 +200,7 @@ void printHexBuf(uint8_t *buf, size_t len) {
     bus.write((crc & 0xff) ^ crc_xor);
     bus.write((crc >> 8) ^ crc_xor);
     bus.flush();
+    digitalWrite(RS485_DE_PIN, LOW);
     assertEqual(bus.read(), -1, F("data received while writing command"), false);
 
     // Ensure sufficient silence after last byte so the slave can start
@@ -214,6 +216,7 @@ void printHexBuf(uint8_t *buf, size_t len) {
     data[sizeof(data)-2] = crc;
     data[sizeof(data)-1] = crc >> 8;
 
+    digitalWrite(RS485_DE_PIN, HIGH);
     for (uint8_t i = 0; i < sizeof(data); ++i) {
       if (i == error_offset) {
         // Emulate parity error by inverting the parity setting
@@ -227,6 +230,8 @@ void printHexBuf(uint8_t *buf, size_t len) {
         busSerial.begin(BAUD_RATE, SERIAL_SETTING);
       }
     }
+    busSerial.flush();
+    digitalWrite(RS485_DE_PIN, LOW);
 
     return true;
   }
@@ -1115,6 +1120,8 @@ void setup() {
     // access results in about 12us clock period at 16Mhz
     bus.setDelay_us(0);
   #elif defined(USE_RS485)
+    pinMode(RS485_DE_PIN, OUTPUT);
+    digitalWrite(RS485_DE_PIN, LOW);
     busSerial.begin(BAUD_RATE, SERIAL_8E1);
   #endif
 
