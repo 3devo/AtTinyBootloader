@@ -638,27 +638,23 @@ test(075_get_serial_number) {
     }
   #elif defined(TEST_SUBJECT_STM32)
     // This is not required by the protocol, but the current STM32
-    // implementation returns the unique data from the chip, which is
-    // two ASCII lot numbers, 8-bit binary wafer number and BCD x/y
-    // position.  The lot number seems to be an ASCII uppercase letter
-    // followed by 2 ASCII numbers, so check that.
-    // Note that this serial number has the words reversed
-    assertMoreOrEqual(data[0], 'A', "", on_failure());
-    assertLessOrEqual(data[0], 'Z', "", on_failure());
-    assertMoreOrEqual(data[5], 'A', "", on_failure());
-    assertLessOrEqual(data[5], 'Z', "", on_failure());
-    for (uint8_t i = 0; i < 2; ++i) {
-      assertMoreOrEqual(data[1 + i], '0', "", on_failure());
-      assertLessOrEqual(data[1 + i], '9', "", on_failure());
-      assertMoreOrEqual(data[6 + i], '0', "", on_failure());
-      assertLessOrEqual(data[6 + i], '9', "", on_failure());
-    }
-    // This seems to be a space, probably to fill up the lot number
-    assertEqual(data[3], ' ', "", on_failure());
-    // X/Y coordinates, BCD-encoded
-    for (uint8_t i = 0; i < 4; ++i) {
-      assertLessOrEqual(data[8 + i] & 0xf0, 0x90, "", on_failure());
-      assertLessOrEqual(data[8 + i] & 0x0f, 0x09, "", on_failure());
+    // implementation returns the unique data from the chip, which is an
+    // ASCII lot number, 8-bit binary wafer number and BCD x/y position.
+    // The lot number seems to be mixed ASCII uppercase letters and
+    // ASCII numbers.
+    // Note that the bootloader shuffles bytes so we get them in
+    // big-endian order (decreasing bit number).
+
+    // data[0] seems to always be a space, probably to fill up the lot number
+    assertEqual(data[0], ' ', "", on_failure());
+    // data[1:6] is ASCII uppercase or digits
+    for (uint8_t i = 1; i <= 6; ++i)
+      assertTrue(data[i] >= '0' && data[i] <= '9' || data[i] >= 'A' && data[i] <= 'Z', "", on_failure());
+    // data[7] is an 8-bit unsigned binary wafer number, so no check
+    // data[8:11] are X/Y coordinates, BCD-encoded
+    for (uint8_t i = 8; i <= 11; ++i) {
+      assertLessOrEqual(data[i] & 0xf0, 0x90, "", on_failure());
+      assertLessOrEqual(data[i] & 0x0f, 0x09, "", on_failure());
     }
   #endif
 }
