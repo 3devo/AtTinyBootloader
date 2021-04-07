@@ -1097,6 +1097,7 @@ void runRandomTest() {
 
 void setup() {
   Serial.begin(115200);
+  while(!Serial) /* wait */;
 
   #if defined(USE_I2C)
     bus.begin();
