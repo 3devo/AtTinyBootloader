@@ -27,7 +27,7 @@ FLASH_APP_OFFSET    = 0
 BL_SIZE        = 2048
 else ifeq ($(ARCH),stm32)
 OPENCM3_DIR         = libopencm3
-DEVICE              = stm32g031k8t6
+DEVICE              = stm32g030c8t6
 FLASH_WRITE_SIZE    = 8
 FLASH_ERASE_SIZE    = 2048
 # Bootloader is at the start of flash, so write app after it

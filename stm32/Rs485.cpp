@@ -39,12 +39,10 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 
 	/* Setup clocks & GPIO for USART */
 	rcc_periph_clock_enable(RCC_USART1);
-	rcc_periph_clock_enable(RCC_GPIOB);
-	gpio_mode_setup(GPIOB, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO3 | GPIO6 | GPIO7);
-	// RX & TX
-	gpio_set_af(GPIOB, GPIO_AF0, GPIO6 | GPIO7);
-	// RTS/DE
-	gpio_set_af(GPIOB, GPIO_AF3, GPIO3);
+	rcc_periph_clock_enable(RCC_GPIOA);
+	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10 | GPIO12);
+	// RX & TX & RTS/DE
+	gpio_set_af(GPIOA, GPIO_AF1, GPIO9 | GPIO10 | GPIO12);
 
 	/* Setup USART parameters. */
 	usart_set_baudrate(USART1, BAUD_RATE);
@@ -67,11 +65,11 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 void BusDeinit() {
 	rcc_periph_reset_pulse(RST_USART1);
 
-	gpio_mode_setup(GPIOB, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO3 | GPIO6 | GPIO7);
-	gpio_set_af(GPIOB, GPIO_AF0, GPIO3 | GPIO6 | GPIO7);
+	gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO9 | GPIO10 | GPIO12);
+	gpio_set_af(GPIOA, GPIO_AF0, GPIO9 | GPIO10 | GPIO12);
 
 	rcc_periph_clock_disable(RCC_USART1);
-	rcc_periph_clock_disable(RCC_GPIOB);
+	rcc_periph_clock_disable(RCC_GPIOA);
 }
 
 void BusSetDeviceAddress(uint8_t address) {
