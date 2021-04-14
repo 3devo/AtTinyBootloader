@@ -15,8 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef BOARDS_H_
-#define BOARDS_H_
+#ifndef CONFIG_H_
+#define CONFIG_H_
 
 #include <stdint.h>
 #if defined(__AVR__)
@@ -49,4 +49,4 @@ struct Pin {
 const uint8_t INITIAL_ADDRESS = 0x08;
 const uint8_t INITIAL_BITS = 4;
 
-#endif /* BOARDS_H_ */
+#endif /* CONFIG_H_ */

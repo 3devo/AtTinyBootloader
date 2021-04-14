@@ -19,7 +19,7 @@
 #define SELFPROGRAM_H_
 
 #include <stdint.h>
-#include "Boards.h"
+#include "Config.h"
 
 void startApplication();
 

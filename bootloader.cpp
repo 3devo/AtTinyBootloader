@@ -26,7 +26,7 @@
 #endif
 #include <stdio.h>
 
-#include "Boards.h"
+#include "Config.h"
 #include "Bus.h"
 #include "BaseProtocol.h"
 #include "SelfProgram.h"
