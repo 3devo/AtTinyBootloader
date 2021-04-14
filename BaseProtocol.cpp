@@ -19,7 +19,6 @@
 #include "Bus.h"
 #include "Crc.h"
 #include "BaseProtocol.h"
-#include "Config.h"
 
 static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 	if (len == 1 && data[0] == GeneralCallCommands::RESET) {

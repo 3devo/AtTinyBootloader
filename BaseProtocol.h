@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "Config.h"
 
 struct Status {
 	static const uint8_t COMMAND_OK            = 0x00;
