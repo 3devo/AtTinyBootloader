@@ -14,7 +14,7 @@
 PROTOCOL_VERSION = 0x0101
 
 CPPSRC         = $(wildcard *.cpp)
-CPPSRC        += $(ARCH)/SelfProgram.cpp $(ARCH)/uart.cpp
+CPPSRC        += $(ARCH)/SelfProgram.cpp $(ARCH)/uart.cpp $(ARCH)/Reset.cpp
 CPPSRC        += $(ARCH)/$(BUS).cpp
 OBJ            = $(CPPSRC:.cpp=.o)
 ifeq ($(ARCH),attiny)

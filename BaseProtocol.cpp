@@ -16,11 +16,6 @@
  */
 
 #include <stdint.h>
-#if defined(__AVR__)
-#include <avr/wdt.h>
-#elif defined(STM32)
-#include <libopencm3/cm3/scb.h>
-#endif
 #include "Bus.h"
 #include "Crc.h"
 #include "BaseProtocol.h"
@@ -28,15 +23,7 @@
 
 static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 	if (len == 1 && data[0] == GeneralCallCommands::RESET) {
-		#if defined(__AVR__)
-		wdt_enable(WDTO_15MS);
-		while(true) /* wait */;
-		#elif defined(STM32)
-		scb_reset_system();
-		#else
-		#error "Unsupported arch"
-		#endif
-
+		resetSystem();
 	} else if (len == 1 && data[0] == GeneralCallCommands::RESET_ADDRESS) {
 		BusResetDeviceAddress();
 	}

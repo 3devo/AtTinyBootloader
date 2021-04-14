@@ -54,3 +54,4 @@ inline cmd_result cmd_ok(uint8_t len = 0) {
 }
 
 cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dataout, uint8_t maxLen);
+void resetSystem();
