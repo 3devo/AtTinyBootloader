@@ -71,7 +71,6 @@ FUSES =
 #define FLASH_BASE                      (0x08000000U)
 #endif
 
-#if defined(STM32)
 extern "C" {
 	// Ensure that any faults reset the system, rather than blocking
 	// in a loop. This ensures the board can be addressed even when
@@ -81,7 +80,6 @@ extern "C" {
 	void bus_fault_handler() __attribute__((alias("hard_fault_handler")));
 	void usage_fault_handler() __attribute__((alias("hard_fault_handler")));
 }
-#endif
 
 void startApplication() __attribute__((__noreturn__));
 void startApplication() {
