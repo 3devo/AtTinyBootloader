@@ -43,6 +43,12 @@ struct GeneralCallCommands {
 	#endif
 };
 
+// Commands typically also supported by application firmware
+struct ProtocolCommands {
+	static const uint8_t GET_PROTOCOL_VERSION  = 0x00;
+	static const uint8_t SET_ADDRESS           = 0x01;
+};
+
 struct cmd_result {
 	cmd_result(uint8_t status, uint8_t len = 0) : status(status), len(len) {}
 	uint8_t status;

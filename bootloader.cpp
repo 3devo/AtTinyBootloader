@@ -39,8 +39,7 @@
 #endif
 
 struct Commands {
-	static const uint8_t GET_PROTOCOL_VERSION  = 0x00;
-	static const uint8_t SET_ADDRESS           = 0x01;
+	// See also ProtocolCommands in BaseProtocol.h
 	static const uint8_t POWER_UP_DISPLAY      = 0x02;
 	static const uint8_t GET_HARDWARE_INFO     = 0x03;
 	static const uint8_t GET_SERIAL_NUMBER     = 0x04;
@@ -161,23 +160,6 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 		return cmd_result(Status::NO_REPLY);
 
 	switch (cmd) {
-		case Commands::GET_PROTOCOL_VERSION:
-			dataout[0] = PROTOCOL_VERSION >> 8;
-			dataout[1] = PROTOCOL_VERSION & 0xFF;
-			return cmd_ok(2);
-
-		case Commands::SET_ADDRESS:
-			if (len != 2)
-				return cmd_result(Status::INVALID_ARGUMENTS);
-
-			// Only respond if the hw type in the request is
-			// the wildcard or matches ours.
-			if (datain[1] != 0 && datain[1] != INFO_HW_TYPE)
-				return cmd_result(Status::NO_REPLY);
-
-			BusSetDeviceAddress(datain[0]);
-			return cmd_ok();
-
 		#ifdef HAVE_DISPLAY
 		case Commands::POWER_UP_DISPLAY:
 			displayOn();

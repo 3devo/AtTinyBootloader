@@ -30,6 +30,32 @@ static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 	return 0;
 }
 
+cmd_result handleCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dataout, uint8_t maxLen) {
+	if (maxLen < 5)
+		return cmd_result(Status::NO_REPLY);
+
+	switch (cmd) {
+		case ProtocolCommands::GET_PROTOCOL_VERSION:
+			dataout[0] = PROTOCOL_VERSION >> 8;
+			dataout[1] = PROTOCOL_VERSION & 0xFF;
+			return cmd_ok(2);
+
+		case ProtocolCommands::SET_ADDRESS:
+			if (len != 2)
+				return cmd_result(Status::INVALID_ARGUMENTS);
+
+			// Only respond if the hw type in the request is
+			// the wildcard or matches ours.
+			if (datain[1] != 0 && datain[1] != INFO_HW_TYPE)
+				return cmd_result(Status::NO_REPLY);
+
+			BusSetDeviceAddress(datain[0]);
+			return cmd_ok();
+		default:
+			return processCommand(cmd, datain, len, dataout, maxLen);
+	}
+}
+
 #if defined(USE_I2C)
 	int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
 		if (address == 0)
@@ -49,7 +75,7 @@ static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 				res = cmd_result(Status::INVALID_CRC);
 			} else {
 				// CRC checks out, process a command
-				res = processCommand(data[0], data + 1, len - 2, data + 2, maxLen - 3);
+				res = handleCommand(data[0], data + 1, len - 2, data + 2, maxLen - 3);
 				if (res.status == Status::NO_REPLY)
 					return 0;
 			}
@@ -87,7 +113,7 @@ static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 				return handleGeneralCall(data, len - 2, maxLen);
 			} else {
 				// CRC checks out, process a command
-				res = processCommand(data[0], data + 1, len - 3, data + 3, maxLen - 5);
+				res = handleCommand(data[0], data + 1, len - 3, data + 3, maxLen - 5);
 				if (res.status == Status::NO_REPLY)
 					return 0;
 			}
