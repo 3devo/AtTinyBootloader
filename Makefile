@@ -18,7 +18,7 @@ CPPSRC        += $(ARCH)/SelfProgram.cpp $(ARCH)/uart.cpp $(ARCH)/Reset.cpp
 CPPSRC        += $(ARCH)/$(BUS).cpp
 OBJ            = $(CPPSRC:.cpp=.o)
 ifeq ($(ARCH),attiny)
-LDSCRIPT       = linker-script.x
+LDSCRIPT       = $(ARCH)/linker-script.x
 MCU            = attiny841
 FLASH_WRITE_SIZE    = SPM_PAGESIZE # Defined by avr-libc
 FLASH_ERASE_SIZE    = 64
