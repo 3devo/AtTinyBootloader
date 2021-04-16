@@ -99,7 +99,7 @@ uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint16_t len) {
 		}
 	}
 
-	for (int i=0; i < len; i += 2) {
+	for (uint16_t i = 0; i < len; i += 2) {
 		uint16_t w = data[i] | (data[i+1] << 8);
 		boot_page_fill_safe(address+i, w);
 	}
