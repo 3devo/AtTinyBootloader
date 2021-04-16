@@ -144,6 +144,11 @@ size:
 	$(SIZE) --format=$(SIZE_FORMAT) $(FILE_NAME).elf
 
 clean:
+	$(MAKE) cleanarch ARCH=attiny BUS=TwoWire
+	$(MAKE) cleanarch ARCH=stm32 BUS=TwoWire
+	$(MAKE) cleanarch ARCH=stm32 BUS=Rs485
+
+cleanarch:
 	rm -rf $(OBJ) $(OBJ:.o=.d) *.elf *.hex *.lst *.map
 
 $(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
