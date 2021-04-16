@@ -22,19 +22,22 @@ LDSCRIPT       = linker-script.x
 MCU            = attiny841
 FLASH_WRITE_SIZE    = SPM_PAGESIZE # Defined by avr-libc
 FLASH_ERASE_SIZE    = 64
-FLASH_APP_OFFSET    = 0
+FLASH_SIZE          = 8192
 # Size of the bootloader area. Must be a multiple of the erase size
 BL_SIZE        = 2048
+FLASH_APP_OFFSET    = 0
+BL_OFFSET           = $(shell expr $(FLASH_SIZE) - $(BL_SIZE))
 else ifeq ($(ARCH),stm32)
 OPENCM3_DIR         = libopencm3
 DEVICE              = stm32g030c8t6
 FLASH_WRITE_SIZE    = 8
 FLASH_ERASE_SIZE    = 2048
-# Bootloader is at the start of flash, so write app after it
-FLASH_APP_OFFSET    = $(BL_SIZE)
 FLASH_SIZE          = 65536
 # Size of the bootloader area. Must be a multiple of the erase size
 BL_SIZE             = 4096
+# Bootloader is at the start of flash, so write app after it
+FLASH_APP_OFFSET    = $(BL_SIZE)
+BL_OFFSET           = 0
 endif
 
 VERSION_SIZE   = 4
@@ -158,8 +161,11 @@ $(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
 %.bin: %.elf
 	$(OBJCOPY) -j .text -j '.text.*' -j .data -O binary $< $@
 
+# When the bootloader has an offset, objcopy pads the pin file at the
+# start, so correct for that.
+MAX_BIN_SIZE=$(shell expr $(BL_OFFSET) + $(BL_SIZE))
 checksize: $(FILE_NAME).bin
-	@if [ $$(stat -c '%s' $<) -gt $(BL_SIZE) ]; then \
+	@if [ $$(stat -c '%s' $<) -gt $(MAX_BIN_SIZE) ]; then \
 		echo "Compiled size too big, maybe adjust BL_SIZE in Makefile?"; \
 		false; \
 	fi
