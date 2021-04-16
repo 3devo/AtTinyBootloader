@@ -149,7 +149,7 @@ clean:
 	$(MAKE) cleanarch ARCH=stm32 BUS=Rs485
 
 cleanarch:
-	rm -rf $(OBJ) $(OBJ:.o=.d) *.elf *.hex *.lst *.map
+	rm -rf $(OBJ) $(OBJ:.o=.d) *.elf *.hex *.lst *.map *.bin
 ifdef OPENCM3_DIR
 	rm -f $(LDSCRIPT)
 endif
