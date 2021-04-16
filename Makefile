@@ -150,6 +150,9 @@ clean:
 
 cleanarch:
 	rm -rf $(OBJ) $(OBJ:.o=.d) *.elf *.hex *.lst *.map
+ifdef OPENCM3_DIR
+	rm -f $(LDSCRIPT)
+endif
 
 $(FILE_NAME).elf: $(OBJ) $(LDSCRIPT) $(LIBDEPS)
 	$(CC) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS)
