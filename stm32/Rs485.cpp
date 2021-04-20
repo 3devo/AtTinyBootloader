@@ -58,6 +58,10 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 
 	/* Finally enable the USART. */
 	usart_enable(USART1);
+
+	#if defined(RS485_USE_INTERRUPTS)
+	USART_CR1(USART1) |= USART_CR1_TXEIE | USART_CR1_RXNEIE | USART_CR1_RTOIE;
+	#endif
 }
 
 void BusDeinit() {
@@ -181,3 +185,9 @@ void BusUpdate() {
 	}
 	#undef printf
 }
+
+#if defined(RS485_USE_INTERRUPTS)
+extern "C" void usart1_isr() {
+	BusUpdate();
+}
+#endif
