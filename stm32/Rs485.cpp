@@ -48,9 +48,7 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 	usart_set_baudrate(USART1, BAUD_RATE);
 	usart_set_databits(USART1, 8+1); // Includes parity bit
 	usart_set_parity(USART1, USART_PARITY_EVEN);
-	usart_set_stopbits(USART1, USART_CR2_STOPBITS_1);
 	usart_set_mode(USART1, USART_MODE_TX_RX);
-	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
 
 	usart_set_rx_timeout_value(USART1, INTER_FRAME_BITS);
 	usart_enable_rx_timeout(USART1);
