@@ -14,12 +14,58 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+#include "../Config.h"
+#if defined(USE_LL_HAL)
+#include <stm32yyxx_ll_gpio.h>
+#include <stm32yyxx_ll_usart.h>
+#include <stm32yyxx_ll_bus.h>
+#else
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/gpio.h>
+#endif
 #include <stdio.h>
 #include "../Bus.h"
+
+#if defined(USE_LL_HAL)
+	// Compatibility macros to run on ST LL HAL (e.g. inside STM32
+	// arduino core) rather than libopencm3. This is not intended as
+	// a complete and generic compatibility layer, but just minimal
+	// things to make the below code work.
+	#define USART_ICR(instance) (instance->ICR)
+	#define USART_ISR(instance) (instance->ISR)
+	#define USART_CR1(instance) (instance->CR1)
+	#define USART_CR3(instance) (instance->CR3)
+	#define usart_enable LL_USART_Enable
+	#define USART_PARITY_EVEN LL_USART_PARITY_EVEN
+	#define usart_set_parity LL_USART_SetParity
+	#define usart_enable_rx_timeout LL_USART_EnableRxTimeout
+	#define usart_set_rx_timeout_value LL_USART_SetRxTimeout
+	#define USART_MODE_TX_RX 0
+	#define usart_set_mode(instance, mode) do {LL_USART_EnableDirectionTx(instance); LL_USART_EnableDirectionRx(instance); } while(0)
+	// This assumes default ABP clock
+	#define usart_set_baudrate(instance, baud) LL_USART_SetBaudRate(instance, 16000000, LL_USART_PRESCALER_DIV1, LL_USART_OVERSAMPLING_16, baud)
+	#define RCC_GPIOA 0
+	#define RCC_USART1 LL_APB2_GRP1_PERIPH_USART1
+	#define rcc_periph_clock_enable(clk) do { \
+		if (clk == RCC_GPIOA) LL_IOP_GRP1_EnableClock(LL_IOP_GRP1_PERIPH_GPIOA); \
+		if (clk == RCC_USART1) LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_USART1); \
+	} while (0)
+	#define rcc_periph_clock_disable(clk) do { \
+		if (clk == RCC_GPIOA) LL_IOP_GRP1_DisableClock(LL_IOP_GRP1_PERIPH_GPIOA); \
+		if (clk == RCC_USART1) LL_APB2_GRP1_DisableClock(LL_APB2_GRP1_PERIPH_USART1); \
+	} while (0)
+	#define usart_set_databits(instance, bits) LL_USART_SetDataWidth(instance, bits == 9 ? LL_USART_DATAWIDTH_9B : (bits == 8 ? LL_USART_DATAWIDTH_8B : LL_USART_DATAWIDTH_7B))
+	#define usart_recv LL_USART_ReceiveData8
+	#define usart_send LL_USART_TransmitData8
+	#define USART_ISR_RXNE USART_ISR_RXNE_RXFNE
+	#define USART_ISR_TXE USART_ISR_TXE_TXFNF
+	#define USART_CR1_TXEIE USART_CR1_TXEIE_TXFNFIE
+	#define USART_CR1_RXNEIE USART_CR1_RXNEIE_RXFNEIE
+	#define RST_USART1 0
+	#define rcc_periph_reset_pulse(instance) LL_APB2_GRP1_ForceReset(LL_APB2_GRP1_PERIPH_USART1)
+	#define usart1_isr USART1_IRQHandler
+#endif // defined(USE_LL_HAL)
 
 static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
@@ -40,9 +86,18 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 	/* Setup clocks & GPIO for USART */
 	rcc_periph_clock_enable(RCC_USART1);
 	rcc_periph_clock_enable(RCC_GPIOA);
+	#if defined(USE_LL_HAL)
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_9, LL_GPIO_MODE_ALTERNATE);
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_10, LL_GPIO_MODE_ALTERNATE);
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_12, LL_GPIO_MODE_ALTERNATE);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_9, LL_GPIO_AF_1);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_10, LL_GPIO_AF_1);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_12, LL_GPIO_AF_1);
+	#else
 	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO10 | GPIO12);
 	// RX & TX & RTS/DE
 	gpio_set_af(GPIOA, GPIO_AF1, GPIO9 | GPIO10 | GPIO12);
+	#endif
 
 	/* Setup USART parameters. */
 	usart_set_baudrate(USART1, BAUD_RATE);
@@ -67,8 +122,17 @@ void BusInit(uint8_t initialAddress, uint8_t initialBits) {
 void BusDeinit() {
 	rcc_periph_reset_pulse(RST_USART1);
 
+	#if defined(USE_LL_HAL)
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_9, LL_GPIO_MODE_ANALOG);
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_10, LL_GPIO_MODE_ANALOG);
+	LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_12, LL_GPIO_MODE_ANALOG);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_9, LL_GPIO_AF_0);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_10, LL_GPIO_AF_0);
+	LL_GPIO_SetAFPin_8_15(GPIOA, LL_GPIO_PIN_12, LL_GPIO_AF_0);
+	#else
 	gpio_mode_setup(GPIOA, GPIO_MODE_ANALOG, GPIO_PUPD_NONE, GPIO9 | GPIO10 | GPIO12);
 	gpio_set_af(GPIOA, GPIO_AF0, GPIO9 | GPIO10 | GPIO12);
+	#endif
 
 	rcc_periph_clock_disable(RCC_USART1);
 	rcc_periph_clock_disable(RCC_GPIOA);
