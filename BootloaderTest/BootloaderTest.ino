@@ -387,6 +387,10 @@ test(010_general_call_reset) {
     assertTrue(check_responds_to(i));
   }
 
+  // But not on adjacent addresses
+  assertTrue(check_no_response_to(FIRST_ADDRESS - 1));
+  assertTrue(check_no_response_to(LAST_ADDRESS + 1));
+
   #if defined(USE_I2C)
   // After a reset, the display should be off
   if (SUPPORTS_DISPLAY && cfg.displayAttached && cmd == GeneralCallCommands::RESET) {
