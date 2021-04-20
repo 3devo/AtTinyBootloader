@@ -383,7 +383,7 @@ test(010_general_call_reset) {
   }
 
   // Check for a response on the full address range
-  for (uint8_t i = FIRST_ADDRESS; i < LAST_ADDRESS; ++i) {
+  for (uint8_t i = FIRST_ADDRESS; i <= LAST_ADDRESS; ++i) {
     assertTrue(check_responds_to(i));
   }
 
