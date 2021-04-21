@@ -103,13 +103,13 @@ static const uint8_t DISPLAY_CONTROLLER_TYPE = 0x01;
 static const uint8_t DISPLAY_I2C_ADDRESS = 0x3C;
 
 #if defined(USE_RS485)
-static const uint32_t BAUD_RATE = 19200;
+static const uint32_t BAUD_RATE = 1000000;
 static const int SERIAL_SETTING = SERIAL_8E1;
 static const int SERIAL_SETTING_INVERT_PARITY = SERIAL_8O1;
 static const int SERIAL_SETTING_NO_PARITY = SERIAL_8N1;
 static const uint32_t MAX_RESPONSE_TIME = 80000;
-static const uint32_t MAX_INTER_CHARACTER = 750;
-static const uint32_t MAX_INTER_FRAME = 1750;
+static const uint32_t MAX_INTER_CHARACTER = 100;
+static const uint32_t MAX_INTER_FRAME = 150;
 #if defined(ARDUINO_STM32_GP20_MAINBOARD)
 static const uint16_t RS485_RX_PIN = PA10;
 static const uint16_t RS485_TX_PIN = PB6;

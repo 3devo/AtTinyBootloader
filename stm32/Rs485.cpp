@@ -71,8 +71,8 @@ static uint8_t initAddress = 0;
 static uint8_t initMask = 0;
 static uint8_t configuredAddress = 0;
 
-static const uint32_t BAUD_RATE = 19200;
-static const uint32_t MAX_INTER_FRAME = 1750; // us
+static const uint32_t BAUD_RATE = 1000000;
+static const uint32_t MAX_INTER_FRAME = 150; // us
 static const uint32_t INTER_FRAME_BITS = (MAX_INTER_FRAME * BAUD_RATE + 1e6 - 1) / 1e6;
 
 void BusInit(uint8_t initialAddress, uint8_t initialBits) {
