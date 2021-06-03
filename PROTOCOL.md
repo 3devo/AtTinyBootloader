@@ -12,10 +12,10 @@ All transactions take the form of a write transfer (command plus
 arguments), followed by a read transfer (status plus command result).
 
 A write transfer consists of: A command byte, any number of argument
-bytes and two CRC bytes.
+bytes and one CRC byte.
 
-A read transfer consists of: A status byte, any number of result bytes,
-and one CRC byte.
+A read transfer consists of: A status byte, a length byte, any number of
+result bytes and one CRC byte.
 
 Visually, this looks like the following. A white background indicates
 the line is controlled by the master, a gray background indicates the
