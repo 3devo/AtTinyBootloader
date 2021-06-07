@@ -60,7 +60,7 @@ result bytes and one CRC byte.
 
 Visually, this looks like the following. A white background indicates
 the line is controlled by the master, a gray background indicates the
-line is controlled by the slave.
+line is controlled by the child.
 
 <table>
 <tr>
@@ -83,7 +83,7 @@ line is controlled by the slave.
 Acks and nacks are omitted from this table, but are present after each
 byte. All bytes should be acked by the other party than the one that
 sent the data. The last byte in a read transfer should always be acked
-by the master, so the slave knows to release the bus.
+by the master, so the child knows to release the bus.
 
 The maximum read or write length is 32 bytes (excluding address, including
 everything else).
@@ -94,8 +94,8 @@ result bytes, excluding the the status, the number itself and the CRC.
 The master should either look at the length byte to know how much bytes
 to read, or it should make sure to read enough bytes so all possibly
 expected replies would fit. If the master is unable to look at the
-length byte during the transfer and thus reads more bytes than the slave
-has available, the slave should just return arbitrary values. The master
+length byte during the transfer and thus reads more bytes than the child
+has available, the child should just return arbitrary values. The master
 should ignore these by looking at the length byte after the transfer.
 Alternatively, it could do a short read first, look at the length byte
 and then do a longer read to get the full reply.
@@ -198,19 +198,19 @@ little-endian, for compatibility with the Modbus protocol.
 
 Clock stretching (I²C only)
 ---------------------------
-The slave is allowed to apply clock stretching at any time during a
+The child is allowed to apply clock stretching at any time during a
 transaction in order to process the command given or for other reasons.
 This includes the entire write *and* read, to allow for example the
-slave to execute the command either directly after receiving it, after
+child to execute the command either directly after receiving it, after
 seeing a stop condition or only during the read just before sending its
 reply.
 
-The total clock stretching that may be applied by the slave during an
+The total clock stretching that may be applied by the child during an
 entire transaction is 80ms. Having a maximum stretch time allows the
 master to detect a timeout and abort the transaction. The master is also
-allowed to stretch the clock, no bounds are imposed on that. The slave
+allowed to stretch the clock, no bounds are imposed on that. The child
 should not attempt to detect a timeout itself, but instead rely on the
-master. The slave should instead monitor the bus for a start condition,
+master. The child should instead monitor the bus for a start condition,
 to always allow the master to start a new read or write.
 
 Retries and CRC failures
@@ -238,7 +238,7 @@ request will result in a master timeout.
 
 Maximum response time (RS485 only)
 ----------------------------------
-The slave must start sending their response within 80ms. More
+The child must start sending their response within 80ms. More
 specifically, this is the maximum time between the end of the
 inter-frame interval (t3.5) and the start bit of the first response
 byte.
@@ -258,7 +258,7 @@ could be extended, or additional polling mechanisms could be added.
 
 Addressing
 ----------
-Instead of responding to a single address, the slave will respond to a
+Instead of responding to a single address, the child will respond to a
 range of different addresses. Even though this increases the chance of
 one of these addresses colliding with other devices (i.e. other I²C or
 other ModBus devices) in the system, there is only a small chance that
@@ -294,16 +294,16 @@ PyCRC command: `pycrc --model crc-16-modbus --check-hexstring 'DEADBEEF'`
 
 Version compatibility
 ---------------------
-The slave is assumed to have a small and fixed bootloader, which implements a
+The child is assumed to have a small and fixed bootloader, which implements a
 single version of this protocol. The master is assumed to be more complex and
 easily upgraded, and will typically support all versions up to the current
 version.
 
-This means that a newer master with an older slave should always work, since
+This means that a newer master with an older child should always work, since
 the master has explicit support for older protocol versions. When an older
-master (e.g. older firmware on the master) is running against a newer slave,
-things should just work if possible, but at least allow an error message to
-be shown.
+master (e.g. older firmware on the master) is running against a newer
+child, things should just work if possible, but at least allow an error
+message to be shown.
 
 This protocol is initially designed to talk to a microcontroller on the
 interface board. This microcontroller needs to take action to enable the
@@ -344,7 +344,7 @@ Applications
 ------------
 The bootloader is intended to allow uploading an application into flash
 and to start it. The intention is that on *every* startup, the master
-uploads an application (with the slave taking care to prevent an
+uploads an application (with the child taking care to prevent an
 erase-write cycle if the same application is uploaded twice). For this
 reason, the bootloader has no timeout value and does not start the
 application unless explicitely instructed.
@@ -390,9 +390,9 @@ The reset command (0x06/0x46) should do a hardware reset of the child
 address as well).
 
 The master should always send a general call reset command at startup,
-which serves to get all slaves into a known state, running the
-bootloader. This prevents issues when the master resets, while the slave
-does not, resulting in the slave running application code while the
+which serves to get all children into a known state, running the
+bootloader. This prevents issues when the master resets, while the child
+does not, resulting in the child running application code while the
 master needs to talk to the bootloader.
 
 Commands
@@ -416,7 +416,7 @@ The base protocol defines these commands:
 
 `GET_PROTOCOL_VERSION` command
 ------------------------------
-This command returns the protocol version implemented by the slave split into a
+This command returns the protocol version implemented by the child split into a
 major and minor part. For example, version 1.0 would be 0x01, 0x00, while
 version 10.2 would be 0x0a, 0x02.
 
@@ -455,7 +455,7 @@ other devices.
 | 1/2   | CRC
 
 On I²C, the address given is the 7-bit address, where the MSB is ignored
-by the slave and must be set to 0 by the master. On RS485, the address
+by the child and must be set to 0 by the master. On RS485, the address
 is just the full 8-bit address.
 
 The device type is a selector to select only devices of a particular
@@ -463,7 +463,7 @@ type. This can be used when multiple devices share the same bus and
 respond to the same address, so they can still be disambiguated based on
 their device type.
 
-When a slave receives this command containing a hardware type that does
+When a child receives this command containing a hardware type that does
 not equal its own type (as returned by `GET_HARDWARE_INFO`), it should
 completely ignore the command (and not respond to the subsequent read
 request either).
@@ -622,7 +622,7 @@ The length and format of the serial number is device-dependent.
 `START_APPLICATION` comand
 --------------------------
 This command tells the bootloader to start the application. To simplify
-slave implementation, this command returns no reply, so the application
+child implementation, this command returns no reply, so the application
 can be started immediately after receiving the command, instead of
 having to wait for a reply to be read first.
 
@@ -649,7 +649,7 @@ To simplify the slave implementation, this command should only be used
 to write consecutive bytes to flash, starting at address 0. In
 particular the address must either be one past the last byte written, or
 it must be zero to start, or start over. If this constraint is violated,
-the slave should return `INVALID_ARGUMENTS` and otherwise ignore the
+the child should return `INVALID_ARGUMENTS` and otherwise ignore the
 packet (so the next write should be accepted if it is consecutive with
 the previous valid write). This allows the master to retry a write when
 it receives in invalid checksum on a reply. It should then ignore the
@@ -666,7 +666,7 @@ then automatically written). At the end of flashing, the
 flash.
 
 When the bytes sent are identical to the current content of the flash,
-the slave should prevent an erase-write cycle. This allows the master
+the child should prevent an erase-write cycle. This allows the master
 to send write commands on every startup, without danger of wearing out
 the flash contents.
 
