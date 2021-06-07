@@ -6,6 +6,47 @@ to allow writing an application to flash and executing that application.
 
 This document describes protocol version 1.1 (0x0101).
 
+History, compatibility and intended use
+---------------------------------------
+The initial version of this protocol was intended to be used over I²C
+only to allow the bootloader to share the same bus as the SSD1306
+display it was connected with. The initial bootloader implementation
+used the low level I²C implementation and framing from the
+"bootloader-attiny" by Erin Tomson from Modulo, but the upper layer of
+the protocol (the available commands) were redesigned from scratch.
+
+The intended usecase for this protocol and bootloader is a integrated
+system with a single master controller, with multiple attached child
+controllers:
+ - At poweron, each child starts the bootloader. This bootloader listens
+   on the bus for commands for the master. There is no timeout, so the
+   bootloader will just wait if the master does not send any info.
+ - The master detects all children, assignes each a unique address and
+   uploads an application to each. This happens again on every boot
+   (though the child takes care to prevent a flash erase and write cycle
+   when the data is identical).
+ - The master tells the child to start the application.
+
+So this protocol is explicitly not intended to be used on standalone
+boards, to upload software from a computer or so.
+
+Initially, only the I²C bus was supported, but since that bus is prone
+to noise problems when used for off-board connections, RS485 support was
+later added. The upper layer of the protocol is identical between I²C
+and RS485, but the lower level (framing) is different.
+
+For RS485, the framing is copied from ModBus, which ensures that this
+protocol can be used on a bus where ModBus is also used, without any
+conflicts (provided that distinct addresses are used). That is, from the
+point of view of other ModBus servers, all ChildBus messages look like
+valid ModBus messages addressed to someone else. The intention is
+explicitly not to allow using a complete ModBus client implementation to
+communicate with a Childbus child.
+
+Note that the physical layer is intended to be RS485, but any
+(minimally) half-duplex byte stream that provides the necessary timing
+can be used (i.e. TTL serial is fine, TCP is not).
+
 Transactions and framing (I²C)
 ------------------------------
 All transactions take the form of a write transfer (command plus
