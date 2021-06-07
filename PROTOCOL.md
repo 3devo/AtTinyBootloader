@@ -655,9 +655,16 @@ This command allows writing an application to flash.
 | 1/2   | CRC
 
 The address specified indicates the (byte) address of the first byte to
-write.
+write. Note that this address is relative to the writable flash area,
+which might or might not be at the start of the device's flash (e.g. the
+bootloader might be at the start of flash and an address 0 might refer
+to the first available address after the bootloader). There is currently
+no mechanism to query for such a "flash offset". When relevant (e.g. for
+selecting the right image to flash), the master is expected to have
+out-of-band knowledge (e.g. based on the device type, hardware version,
+bootloader version, etc.) to determine the offset.
 
-To simplify the slave implementation, this command should only be used
+To simplify the child implementation, this command should only be used
 to write consecutive bytes to flash, starting at address 0. In
 particular the address must either be one past the last byte written, or
 it must be zero to start, or start over. If this constraint is violated,
