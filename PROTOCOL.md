@@ -48,7 +48,7 @@ The maximum read or write length is 32 bytes (excluding address, including
 everything else).
 
 The number of result bytes in the transfer indicates the number of
-result bytes, excluding the status, the number itself and the CRC.
+result bytes, excluding the the status, the number itself and the CRC.
 
 The master should either look at the length byte to know how much bytes
 to read, or it should make sure to read enough bytes so all possibly
@@ -122,9 +122,11 @@ message size. See the [publication by Philip Koopman][koopman] for CRC
 comparisons. This CRC was mostly chosen because an efficient AVR implementation
 is available and it seems to perform well enough.
 
-Polynomial: x^8 + x^2 + x + 1 (0x83 / 0xE0)
-Starting value: 0xff
-No output XOR
+Polynomial: x^8 + x^2 + x + 1 (0x83 / 0xE0) 
+Starting value: 0xff 
+No output XOR 
+
+[koopman]: https://users.ece.cmu.edu/~koopman/crc/
 
 Version compatibility
 ---------------------
@@ -336,7 +338,6 @@ type of display controller attached. Currently only one type is defined:
 This command is intended as a last-resort option, since the
 powerup-sequence is hardcoded and might not be ideal.
 
-
 `GET_HARDWARE_INFO` command
 ---------------------------
 This command requests information about the hardware the bootloader runs
@@ -383,7 +384,7 @@ should use a compatible hardware version value of 0x01, if compatibility
 with protocol version 1.0 is intended.
 
 The bootloader version value is informative (and should be considered
-board-specific) and its value is not defind by this specification.
+board-specific) and its value is not defined by this specification.
 
 The available flash size indicates the number of bytes of flash that are
 available to write to.
@@ -512,13 +513,13 @@ the flash contents.
 
 When flashing fails for any reason, an additional reason byte is
 returned. The meaning of this byte is purely informative and not defined
-by this protocol, it should be looked up in the bootloader.
+by this protocol, its meaning should be looked up in the bootloader.
 
 `FINALIZE_FLASH` command
 ------------------------
-This command commits all unwritten bytes (as sent by `WRITE_FLASH`) the
-the flash memory. After this command, no further `WRITE_FLASH` commands
-should be sent, except with a zero address to start over.
+This command commits all unwritten bytes (as sent by `WRITE_FLASH`) to
+the the flash memory. After this command, no further `WRITE_FLASH`
+commands should be sent, except with a zero address to start over.
 
 | Bytes | Command field
 |-------|-------------------------------
@@ -545,7 +546,7 @@ facilitate verification of the "erase only when needed" mechanism.
 
 When flashing fails for any reason, an additional reason byte is
 returned. The meaning of this byte is purely informative and not defined
-by this protocol, it should be looked up in the bootloader.
+by this protocol, its meaning should be looked up in the bootloader.
 
 `READ_FLASH` command
 ------------------------
