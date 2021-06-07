@@ -6,8 +6,8 @@ to allow writing an application to flash and executing that application.
 
 This document describes protocol version 1.1 (0x0101).
 
-Transactions
-------------
+Transactions and framing (I²C)
+------------------------------
 All transactions take the form of a write transfer (command plus
 arguments), followed by a read transfer (status plus command result).
 
@@ -61,6 +61,75 @@ and then do a longer read to get the full reply.
 
 The CRC is calculated over all bytes, except the address byte.
 
+Serial settings and timings (RS485)
+-----------------------------------
+Like with ModBus, the serial settings can be varied depending on the
+needs of the network. The default settings are 19200 bps, one start bit,
+8 data bits, even parity and one stop bit.
+
+ModBus uses an interframe timeout (t3.5) which is nominally the length
+of 3.5 bytes up to 19200 bps, but is specified as a fixed 1750μs for
+higher baudrates.
+
+In practice, these default settings (19200 bps and 1750μs t3.5) result
+in excessive transfer times when uploading bigger flash contents (38
+seconds for transferring 64k), so using a higher baudrate and/or lower
+interframe timeout is recommended.
+
+ModBus also specifies a maximum interbyte spacing (t1.5), considering
+a message invalid if this maximum spacing is exceeded inside a frame.
+To simplify implementations, a child does not need to check this
+spacing, though a master should comply with it.
+
+Transactions and framing (RS485)
+--------------------------------
+All transactions take the form of a request (master-to-child, command
+plus arguments), followed by a reply (child-to-master, status plus
+command result).
+
+A request consists of: An address byte, command byte, any number of argument
+bytes and two CRC bytes.
+
+A write transfer consists of: An address byte, a status byte, a length
+byte, any number of result bytes, and one CRC byte.
+
+Visually, this looks like the following. A white background indicates
+the line is controlled by the master, a gray background indicates the
+line is controlled by the child.
+
+<table>
+<tr>
+<td>address</td>
+<td>command</td>
+<td>argument bytes...</td>
+<td>CRC LSB</td>
+<td>CRC MSB</td>
+</tr>
+<tr>
+<td style="background-color: #aaa">address</td>
+<td style="background-color: #aaa">status</td>
+<td style="background-color: #aaa">number of result bytes</td>
+<td style="background-color: #aaa">result bytes ...</td>
+<td style="background-color: #aaa">CRC LSB</td>
+<td style="background-color: #aaa">CRC MSB</td>
+</tr>
+</table>
+
+The maximum request or reply length is 32 bytes (from address to CRC,
+inclusive. This dieviates from I²C, which allows 32 bytes excluding
+the address).
+
+The number of result bytes in the transfer indicates the number of
+result bytes, excluding the address, the status, the number
+itself and the CRC.
+
+The CRC is calculated over all bytes, including the address byte (this
+deviates from the I²C version).
+
+The end of a request or reply is signaled by a period of silence, called
+t3.5 by the ModBus specification. See below for recommendations on its
+length.
+
 Status codes
 ------------
 The status byte can have these values:
@@ -71,7 +140,7 @@ The status byte can have these values:
 | 0x01        | `COMMAND_FAILED`                  | Command-specific
 | 0x02        | `COMMAND_NOT_SUPPORTED`           | None
 | 0x03        | `INVALID_TRANSFER`                | None
-| 0x04        | `INVALID_CRC`                     | None
+| 0x04        | `INVALID_CRC` (I²C only)          | None
 | 0x05        | `INVALID_ARGUMENTS`               | None
 | 0xff        | Unused                            |
 
@@ -83,9 +152,11 @@ Multi-byte values
 -----------------
 Any multi-byte values specified in this protocol should be transmitted
 in network order (big endian), so with the most significant byte first.
+As an exception to this, the CRC on RS485 messages is transmitted
+little-endian, for compatibility with the Modbus protocol.
 
-Clock stretching
-----------------
+Clock stretching (I²C only)
+---------------------------
 The slave is allowed to apply clock stretching at any time during a
 transaction in order to process the command given or for other reasons.
 This includes the entire write *and* read, to allow for example the
@@ -101,22 +172,65 @@ should not attempt to detect a timeout itself, but instead rely on the
 master. The slave should instead monitor the bus for a start condition,
 to always allow the master to start a new read or write.
 
-I2C addresses
--------------
+Retries and CRC failures
+------------------------
+On I²C, the master can retry a failed read, for example when a CRC error
+occurs on read. On subsequent reads, the child will return the exact
+same reply.
+
+On RS485 replies are initiated by the child, not the master,
+and there is no mechanism for re-requesting a reply a second time (to
+keep the child implementation simple and allow sharing a single buffer
+between the incoming request and an outgoing reply). This means that on
+CRC errors or reply timeouts, the reply must be considered lost and the
+master should retry the command instead (all commands are specified in
+such a way that this should always be possible).
+
+On RS485, when a child detects a CRC error, it must *not* send an
+`INVALID_CRC` reply, but instead drop and ignore the request. This
+prevents a situation where a request is sent to child A, but is received
+with a bit error in the address byte by child B. If child A does receive
+the request correctly, then both childs might think the request is for
+them and send conflicting replies. To prevent this, a reply should only
+be sent when the CRC is correct. This means that bit errors in the
+request will result in a master timeout.
+
+Maximum response time (RS485 only)
+----------------------------------
+The slave must start sending their response within 80ms. More
+specifically, this is the maximum time between the end of the
+inter-frame interval (t3.5) and the start bit of the first response
+byte.
+
+If no response is sent within that time (plus some margin), the master
+should assume that the response was lost and will no longer be sent and
+should act accordingly (i.e. retry or report failure). If a child
+finalizes a reply only after this timeout, it should drop it rather than
+send it too late, to prevent bus contention.
+
+Note that this maximum response time was chosen to be long enough to
+allow a full page erase and write on a STM32G0 MCU (using fast
+programming), to prevent needing the additional (protocol and
+implementation) complexity of polling for completion. If future
+implementations need longer response times, the maximum response time
+could be extended, or additional polling mechanisms could be added.
+
+Addressing
+----------
 Instead of responding to a single address, the slave will respond to a
 range of different addresses. Even though this increases the chance of
-one of these addresses colliding with other devices in the system, there
-is only a small chance that *all* of these addresses collide. The
-protocol includes a `SET_ADDRESS` command that makes the slave
-respond to just a single address, after which all other addresses can be
-used as normal without conflicts.
+one of these addresses colliding with other devices (i.e. other I²C or
+other ModBus devices) in the system, there is only a small chance that
+*all* of these addresses collide. The protocol includes a `SET_ADDRESS`
+command that makes the child respond to just a single address, after
+which all other addresses can be used as normal without conflicts.
 
-The bootloader will initially respond to any I2c address in the 8-15
+The bootloader will initially respond to any address in the 8-15
 range.
 
-CRC
----
-The protocol uses CRC-8-CCITT, which should provide protection against all
+CRC (I²C)
+---------
+For I²C, the protocol uses CRC-8-CCITT, which should provide protection against all
 1-bit and 3-bit errors, and good protection for 2-bit errors up to the maximum
 message size. See the [publication by Philip Koopman][koopman] for CRC
 comparisons. This CRC was mostly chosen because an efficient AVR implementation
@@ -127,6 +241,15 @@ Starting value: 0xff
 No output XOR 
 
 [koopman]: https://users.ece.cmu.edu/~koopman/crc/
+
+CRC (RS485)
+-----------
+For RS485, the protocol uses CRC-16-IBM, as used by ModBus.
+
+Polynomial: x^16 + x^15 + x^2 + 1 (0xC002 / 0xA001) 
+Starting value: 0xffff 
+No output XOR 
+PyCRC command: `pycrc --model crc-16-modbus --check-hexstring 'DEADBEEF'` 
 
 Version compatibility
 ---------------------
@@ -173,8 +296,8 @@ values and extra bits (ignore them if possible). If this behaviour
 would break things (e.g. a new reply value that requires the master to
 act differently), the major version should be bumped, otherwise only the
 minor version would suffice. Note that adding extra bytes to a reply
-always requires bumping the major version, since the master dictates how
-much bytes are read.
+always requires bumping the major version, since (on I²C) the master
+dictates how much bytes are read.
 
 Applications
 ------------
@@ -201,21 +324,29 @@ defined in the range reserved for application commands.
 General call handling
 ---------------------
 The bootloader and the application should support the general call
-address (0x00+W), and in particular the reset (0x06) and reset address
-(0x04) commands.
+address (0x00), and in particular the reset and reset address commands.
 
-A general call consists of a write to the 0x00 I2c address, followed by
-a command byte. No additional framing (e.g. no CRC) happens, and no
-reply is read in response to the command.
+On I²C, a general call consists of a write to the 0x00 I2c address,
+followed by a command byte. No additional framing (e.g. no CRC) happens,
+and no reply is read in response to the command. The command byte uses
+the standard I²C meaning of 0x04 for "reset address" and 0x06 for reset.
 
-The reset address command (0x04) should revert the effect of the
+On RS485, a general call consists of a full frame consisting of the 0x00
+address, the commandcode and 2 CRC bytes. The command bytes are 0x44 for
+"reset address" and 0x46 for "reset". These are arbitrary values chosen
+from a "user-defined function codes" block in the Modbus specification
+to minimize chance of conflicts with other Modbus servers that also
+listen to the general call command.
+
+The reset address command (0x04/0x44) should revert the effect of the
 `SET_ADDRESS` command and make the bootloader respond to the default
 addresses again. If the application also implements `SET_ADDRESS` or
 something similar, it is recommended to also implement the reset address
 command.
 
-The reset command (0x06) should do the same, but also do a hardware
-reset of the slave (which should start the bootloader again).
+The reset command (0x06/0x46) should do a hardware reset of the child
+(which should start the bootloader again and as a side effect reset the
+address as well).
 
 The master should always send a general call reset command at startup,
 which serves to get all slaves into a known state, running the
@@ -254,7 +385,7 @@ this version number.
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `GET_PROTOCOL_VERSION` (0x00)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
@@ -262,7 +393,7 @@ this version number.
 | 1     | Length
 | 1     | Major version
 | 1     | Minor version
-| 1     | CRC
+| 1/2   | CRC
 
 `SET_ADDRESS` command
 -------------------------
@@ -274,16 +405,17 @@ other devices.
 | 1     | Cmd: `SET_ADDRESS` (0x01)
 | 1     | Address to use
 | 1     | Hardware type
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
-| 1     | CRC
+| 1/2   | CRC
 
-The I²C address given is the 7-bit address, where the MSB is ignored by
-the slave and must be set to 0 by the master.
+On I²C, the address given is the 7-bit address, where the MSB is ignored
+by the slave and must be set to 0 by the master. On RS485, the address
+is just the full 8-bit address.
 
 The device type is a selector to select only devices of a particular
 type. This can be used when multiple devices share the same bus and
@@ -299,9 +431,13 @@ A device type of 0x00 is a wildcard, all devices should process that.
 Masters should only use this when they are certain that at most one
 device will be respond, since there is no provision to handle conflicts.
 
-The actual switch can happen either before or after the response is
-read. The master should read a response from the old address, and if no
-reply is received, it should read from the new address.
+On I²C, the change in address can happen either before or after the
+response is read. The master should read a response from the old
+address, and if no reply is received, it should read from the new
+address.
+
+On RS485, the response should include the old address from before the
+switch.
 
 `POWER_UP_DISPLAY` command
 --------------------------
@@ -313,20 +449,21 @@ command is given, the bootloader executes the proper sequence for
 powering up the on-board display. No initialization commands are sent to
 the display, this should be done by the master.
 
-Clock stretching should be used to ensure the transaction does not
-complete before the display is powered on and ready.
+By using clock stretching (for I²C) or delaying the reply (for RS485),
+the child should ensure the transaction does not complete before the
+display is powered on and ready.
 
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `POWER_UP_DISPLAY` (0x02)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00) or `COMMAND_NOT_SUPPORTED` (0x02)
 | 1     | Length
 | 1     | Controller type
-| 1     | CRC
+| 1/2   | CRC
 
 Modules that do not have an on-board display should just return
 `COMMAND_NOT_SUPPORTED`.
@@ -346,7 +483,7 @@ on.
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `GET_HARDWARE_INFO` (0x03)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
@@ -356,7 +493,7 @@ on.
 | 1     | Compatible hardware revision
 | 1     | Bootloader version
 | 2     | Available flash size
-| 1     | CRC
+| 1/2   | CRC
 
 The following hardware types are defined:
 
@@ -399,14 +536,14 @@ This command requests the actual hardware version of the board.
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `GET_HARDWARE_REVISION` (0x09)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
 | 1     | Hardware revision
-| 1     | CRC
+| 1/2   | CRC
 
 The returned hardware revision indicates the actual board version and
 should be changed on every hardware change, even minor changes. Together
@@ -430,14 +567,14 @@ no serial number is present, this command can return
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `GET_SERIAL_NUMBER` (0x04)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
 | n     | Serial number
-| 1     | CRC
+| 1/2   | CRC
 
 The length and format of the serial number is device-dependent.
 
@@ -451,7 +588,7 @@ having to wait for a reply to be read first.
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `START_APPLICATION` (0x05)
-| 1     | CRC
+| 1/2   | CRC
 
 `WRITE_FLASH` command
 ---------------------
@@ -462,7 +599,7 @@ This command allows writing an application to flash.
 | 1     | Cmd: `WRITE_FLASH` (0x06)
 | 2     | Address
 | 0+    | Data
-| 1     | CRC
+| 1/2   | CRC
 
 The address specified indicates the (byte) address of the first byte to
 write.
@@ -496,20 +633,20 @@ the flash contents.
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `INVALID_ARGUMENTS` (0x05)
 | 1     | Length
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_FAILED` (0x01)
 | 1     | Length
 | 1     | Reason
-| 1     | CRC
+| 1/2   | CRC
 
 When flashing fails for any reason, an additional reason byte is
 returned. The meaning of this byte is purely informative and not defined
@@ -524,21 +661,21 @@ commands should be sent, except with a zero address to start over.
 | Bytes | Command field
 |-------|-------------------------------
 | 1     | Cmd: `FINALIZE_FLASH` (0x07)
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
 | 1     | Erasecount
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_FAILED` (0x01)
 | 1     | Length
 | 1     | Reason
-| 1     | CRC
+| 1/2   | CRC
 
 The erasecount is the number of pages erased since the last reset, or
 the last succesful `FINALIZE_FLASH` command. This is returned to
@@ -560,14 +697,14 @@ return an inconsistent state.
 | 1     | Cmd: `READ_FLASH` (0x07)
 | 2     | Address
 | 1     | Length
-| 1     | CRC
+| 1/2   | CRC
 
 | Bytes | Reply format
 |-------|-------------------------------
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
 | 0+    | Data
-| 1     | CRC
+| 1/2   | CRC
 
 License
 -------
