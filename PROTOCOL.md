@@ -362,6 +362,15 @@ status codes, etc.). Any commands that make sense (e.g.
 `SET_ADDRESS`) can also be implemented, new commands should be
 defined in the range reserved for application commands.
 
+An application firmware is also encouraged to implement the
+`GET_PROTOCOL_VERSION` command to allow identifying a successfully
+started application firmware using a generic command, as well as
+distinguishing a running bootloader from an application with a single
+command if needed.
+
+If the application firmiware implements `GET_PROTOCOL_VERSION`, it
+should return a version of 0.0 (0x00, 0x00).
+
 General call handling
 ---------------------
 The bootloader and the application should support the general call
@@ -419,6 +428,9 @@ The base protocol defines these commands:
 This command returns the protocol version implemented by the child split into a
 major and minor part. For example, version 1.0 would be 0x01, 0x00, while
 version 10.2 would be 0x0a, 0x02.
+
+When this command is implemented by an application firmware, it should
+always return a version of 0.0 (0x00, 0x00).
 
 See the section on compatibility on how the master is expected to handle
 this version number.
