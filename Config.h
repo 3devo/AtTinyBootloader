@@ -22,9 +22,9 @@
 #include <Gpio.h>
 
 #if defined(BOARD_TYPE_interfaceboard)
-	const Pin PIN_3V3_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA2};
-	const Pin PIN_BOOST_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA3};
-	const Pin PIN_DISPLAY_RESET = {&PORTB, &DDRB, &PUEB, 1 << PB0};
+	const Pin PIN_3V3_ENABLE = {&PORTA, &PINA, &DDRA, &PUEA, 1 << PA2};
+	const Pin PIN_BOOST_ENABLE = {&PORTA, &PINA, &DDRA, &PUEA, 1 << PA3};
+	const Pin PIN_DISPLAY_RESET = {&PORTB, &PINA, &DDRB, &PUEB, 1 << PB0};
 
 	const uint8_t INFO_HW_TYPE = 1;
 	const uint8_t DISPLAY_CONTROLLER_TYPE = 1;
