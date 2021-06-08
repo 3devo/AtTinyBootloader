@@ -91,7 +91,6 @@ cmd_result handleCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dat
 	}
 #elif defined(USE_RS485)
 	int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
-		// Check that there is at least room for a status, length and a CRC
 		// Check that there is at least room for an address, status, length and CRC
 		if (maxLen < 5)
 			return 0;
