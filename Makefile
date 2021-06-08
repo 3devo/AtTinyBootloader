@@ -53,6 +53,8 @@ CXXFLAGS      += -flto -fno-fat-lto-objects
 CXXFLAGS      += -ffunction-sections -fdata-sections -Wl,--gc-sections
 CXXFLAGS      += -fno-exceptions
 
+CXXFLAGS      += -I$(ARCH)
+
 CXXFLAGS      += -DVERSION_SIZE=$(VERSION_SIZE)
 CXXFLAGS      += -DFLASH_ERASE_SIZE=$(FLASH_ERASE_SIZE)
 CXXFLAGS      += -DFLASH_WRITE_SIZE=$(FLASH_WRITE_SIZE)

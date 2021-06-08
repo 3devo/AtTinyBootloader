@@ -19,16 +19,7 @@
 #define CONFIG_H_
 
 #include <stdint.h>
-#if defined(__AVR__)
-	#include <avr/io.h>
-#endif
-
-struct Pin {
-	volatile uint8_t* port;
-	volatile uint8_t* ddr;
-	volatile uint8_t* pue;
-	uint8_t mask;
-};
+#include <Gpio.h>
 
 #if defined(BOARD_TYPE_interfaceboard)
 	const Pin PIN_3V3_ENABLE = {&PORTA, &DDRA, &PUEA, 1 << PA2};
