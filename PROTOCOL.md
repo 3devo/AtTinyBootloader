@@ -1,8 +1,11 @@
-3devo attiny bootloader protocol
-================================
+Childbus protocol
+=================
 This protocol allows communicating with the bootloader running on an
-attiny or other small microcontroller, through I²C. Its main purpose is
-to allow writing an application to flash and executing that application.
+attiny or other small microcontroller, through I²C. It is intended to
+support a composite embedded system, where a single mainboard controls a
+number of child boards connected to a shared bus. This protocol then
+facilitates the mainboard uploading an application to each child bus and
+then executing that application.
 
 This document describes protocol version 1.1 (0x0101).
 
