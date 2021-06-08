@@ -256,8 +256,92 @@ implementation) complexity of polling for completion. If future
 implementations need longer response times, the maximum response time
 could be extended, or additional polling mechanisms could be added.
 
-Addressing
-----------
+Multiple children
+-----------------
+When multiple children are connected to the same bus, a muster must have
+some ways to distinguish them.
+
+There are currently two ways to achieve this:
+
+ 1. By using the "Hardware type" field of the `SET_ADDRESS` command.
+    This allows the master to reconfigure the address of a single child
+    based on its hardware type before further querying it. A big
+    limitation of this approach is that it only works when all children
+    have unique hardware types, and it also requires "blindly"
+    reassigning addresses for each hardware type that might be present
+    before knowing that a device is actually present.
+
+    This approach was implemented for the I²C version of this protocol,
+    but never actually used in practice (since only one device was
+    present on the bus anyway).
+
+ 2. By using "child select" pins. These are similar to the Chip Select
+    pins used in the SPI interface, where the bootloader only responds
+    to commands to the initial address range when its child select pin
+    is asserted. Commands addressed to the address configured by
+    `SET_ADDRESS` and general call commands are processed
+    unconditionally.
+
+    This requires an extra wire to be routed to each child, but
+    application firmware typically already requires a status or irq pin
+    which can be reused as a child select pin (which is used in the
+    master-to-child direction when the bootloader runs and is used in
+    the child-to-mastr direction when the application firmare runs). To
+    prevent short-circuits when both sides accidentally drive the pin,
+    adding a series resistor is recommended.
+
+    This pin is intended to be active-low open-collector with a pullup
+    on the master side (though push-pull can also be used, with a
+    slightly higher chance of conflicts).
+
+    The pin must be kept asserted or deasserted throughout the entire
+    transaction, if the pin status is changed halfway through a
+    transaction, it is undefined whether the child will respond or not.
+
+    When its child select pin is not asserted, a child is allowed to
+    respond with ACKs to an I²C write transaction (to simplify
+    implementation), but it must not ACK the subsequent read
+    transaction.
+
+    To simplify wiring, children can also be connected in a tree
+    topology, where any child may have downstream connectors to connect
+    additional "nested" children to the bus. Each of these downstream
+    connectors contains a distinct child select pin, each of which can
+    be asserted individually using the `SET_CHILD_SELECT` command.
+
+    It is expected that the application firmwares further support this
+    topology by providing a `GET_STATUS_PINS` or similar command to
+    query the value of each downstream status pin, and will assert their
+    upstream status pin when any downstream status pin is asserted.
+
+    This toplogy means that the master only needs a single child select
+    pin for each directly-connected child, at the expense of some
+    additional overhead accessing the child select or status pins.
+
+    To enumerate the bus, the master starts by deasserting all child
+    select pins and issues a general call reset (which causes all
+    children to deassert their downstream child select pins). Then, it
+    asserts one child select pin, discovers if any child is connected,
+    reconfigures its address and deasserts the pin again. This process
+    is repeated for all of its own child select pins, as well as any
+    child select pins on the discovered children, allowing it to
+    discover all connected children as well as how they are connected
+    physically.
+
+ Note that the first option (using hardware type) is always available in
+ compliant bootloader implementations. However, there is no in-band
+ mechanism for deciding or detecting if the child select mechansim is in
+ use, so this must be coordinated based on the system design. For new
+ designs, the child select mechanism is recommended because it gives the
+ greatest flexibility.
+
+ For 3devo, the I²C-based systems will remain configured to not use
+ the child select mechanism (and probably be limited to a single device
+ anyway). All future developments will use the RS485 transport and are
+ intended to have child select enabled.
+
+Initial addresses
+-----------------
 Instead of responding to a single address, the child will respond to a
 range of different addresses. Even though this increases the chance of
 one of these addresses colliding with other devices (i.e. other I²C or
@@ -420,6 +504,8 @@ The base protocol defines these commands:
 | 0x07        | `FINALIZE_FLASH`
 | 0x08        | `READ_FLASH`
 | 0x09        | `GET_HARDWARE_REVISION`
+| 0x0a        | `GET_NUM_CHILDREN`
+| 0x0b        | `SET_CHILD_SELECT`
 | 0x80 - 0xfe | Reserved for application commands
 | 0xff        | Reserved
 
@@ -764,6 +850,63 @@ return an inconsistent state.
 | 1     | Status: `COMMAND_OK` (0x00)
 | 1     | Length
 | 0+    | Data
+| 1/2   | CRC
+
+`GET_NUM_CHILDREN` command (optional)
+-------------------------------------
+This command returns the number of downstream child connectors and/or
+child select pins this child has.
+
+This command is optional, if it is not implemented,
+`COMMAND_NOT_SUPPORTED` should be returned and the master should behave
+as if a value of 0 was returned.
+
+| Bytes | Command field
+|-------|-------------------------------
+| 1     | Cmd: `GET_NUM_CHILDREN` (0x0a)
+| 1/2   | CRC
+
+| Bytes | Reply format
+|-------|-------------------------------
+| 1     | Status: `COMMAND_OK` (0x00)
+| 1     | Length
+| 1     | Number of children
+| 1/2   | CRC
+
+`SET_CHILD_SELECT` command (optional)
+-------------------------------------
+This command sets the status of a downstream child select pin.
+
+This command is optional, but if `GET_NUM_CHILDREN` is implemented,
+`SET_CHILD_SELECT` must also be implemented.
+
+| Bytes | Command field
+|-------|-------------------------------
+| 1     | Cmd: `SET_CHILD_SELECT` (0x0b)
+| 1     | Index
+| 1     | State
+| 1/2   | CRC
+
+The specified index is the index of the pin to control, which must be
+greater than or equal to 0, and less than the number returned by
+`GET_NUM_CHILDREN`.
+
+The specified state is the intended state of the pin: 0 to deassert the
+pin (make it Hi-Z), 1 to assert the pin (make it LOW).
+
+If arguments outside these ranges are specified, `INVALID_ARGUMENTS`
+will be returned.
+
+| Bytes | Reply format
+|-------|-------------------------------
+| 1     | Status: `COMMAND_OK` (0x00)
+| 1     | Length
+| 1/2   | CRC
+
+| Bytes | Reply format
+|-------|-------------------------------
+| 1     | Status: `INVALID_ARGUMENTS` (0x05)
+| 1     | Length
 | 1/2   | CRC
 
 License
