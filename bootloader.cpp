@@ -132,24 +132,21 @@ void displayOn() {
 	// This pin has a pullup to 3v3, so the display comes out of
 	// reset as soon as the 3v3 is powered up. To prevent that, pull
 	// it low now.
-	*PIN_DISPLAY_RESET.port &= ~PIN_DISPLAY_RESET.mask;
-	*PIN_DISPLAY_RESET.ddr |= PIN_DISPLAY_RESET.mask;
+	PIN_DISPLAY_RESET.write(0);
 
 	// Reset sequence for the display according to datasheet: Enable
 	// 3v3 logic supply, then release the reset, then powerup the
 	// boost converter for LED power. This is a lot slower than
 	// possible according to the datasheet.
-	*PIN_3V3_ENABLE.ddr |= PIN_3V3_ENABLE.mask;
-	*PIN_3V3_ENABLE.port |= PIN_3V3_ENABLE.mask;
+	PIN_3V3_ENABLE.write(1);
 
         _delay_ms(1);
 	// Switch to input to let external 3v3 pullup work instead of
 	// making it high (which would be 5v);
-	*PIN_DISPLAY_RESET.ddr &= ~PIN_DISPLAY_RESET.mask;
+	PIN_DISPLAY_RESET.hiz();
 
         _delay_ms(1);
-	*PIN_BOOST_ENABLE.ddr |= PIN_BOOST_ENABLE.mask;
-	*PIN_BOOST_ENABLE.port |= PIN_BOOST_ENABLE.mask;
+	PIN_BOOST_ENABLE.write(1);
 
         _delay_ms(5);
 }
