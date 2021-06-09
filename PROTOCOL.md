@@ -88,8 +88,8 @@ byte. All bytes should be acked by the other party than the one that
 sent the data. The last byte in a read transfer should always be acked
 by the master, so the child knows to release the bus.
 
-The maximum read or write length is 32 bytes (excluding address, including
-everything else).
+The maximum length of a transfer is variable, see the
+`GET_MAX_PACKET_LENGTH` command for more details.
 
 The number of result bytes in the transfer indicates the number of
 result bytes, excluding the the status, the number itself and the CRC.
@@ -159,9 +159,8 @@ line is controlled by the child.
 </tr>
 </table>
 
-The maximum request or reply length is 32 bytes (from address to CRC,
-inclusive. This dieviates from I²C, which allows 32 bytes excluding
-the address).
+The maximum length of a request or reply is variable, see the
+`GET_MAX_PACKET_LENGTH` command for more details.
 
 The number of result bytes in the transfer indicates the number of
 result bytes, excluding the address, the status, the number
@@ -509,6 +508,7 @@ The base protocol defines these commands:
 | 0x09        | `GET_HARDWARE_REVISION`
 | 0x0a        | `GET_NUM_CHILDREN`
 | 0x0b        | `SET_CHILD_SELECT`
+| 0x0c        | `GET_MAX_PACKET_LENGTH`
 | 0x80 - 0xfe | Reserved for application commands
 | 0xff        | Reserved
 
@@ -911,6 +911,38 @@ will be returned.
 | 1     | Status: `INVALID_ARGUMENTS` (0x05)
 | 1     | Length
 | 1/2   | CRC
+
+`GET_MAX_PACKET_LENGTH` command (optional)
+------------------------------------------
+This command returns the maximum length of a request or reply packet
+that the bootloader is prepared to accept or return.
+
+What is included in the packet length depends on the protocol used:
+ - For I²C, this is all data, including the CRC but excluding the
+   address which is considered part of the underlying I²C protocol.
+ - For RS485, this includes all data *including* the address, up to and
+   including the CRC.
+
+This command is optional, if it is not implemented,
+`COMMAND_NOT_SUPPORTED` should be returned and the master should behave
+as if a value of 32 was returned.
+
+If this command is implemented, the value returned must be at least 32
+(in other words, a master may assume that 32-byte packets are ok,
+even without using this command).
+
+| Bytes | Command field
+|-------|-------------------------------
+| 1     | Cmd: `GET_MAX_PACKET_LENGTH` (0x0c)
+| 1/2   | CRC
+
+| Bytes | Reply format
+|-------|-------------------------------
+| 1     | Status: `COMMAND_OK` (0x00)
+| 1     | Length
+| 2     | Max packet length
+| 1/2   | CRC
+
 
 License
 -------
