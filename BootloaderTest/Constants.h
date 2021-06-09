@@ -31,13 +31,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#define TEST_SUBJECT_ATTINY
-//#define TEST_SUBJECT_STM32
+//#define TEST_SUBJECT_ATTINY
+#define TEST_SUBJECT_STM32
 
-#define USE_I2C
-//#define USE_RS485
+//#define USE_I2C
+#define USE_RS485
 
-//#define USE_CHILD_SELECT
+#define USE_CHILD_SELECT
 
 struct Status {
   enum {
