@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define USE_I2C
 //#define USE_RS485
 
+//#define USE_CHILD_SELECT
+
 struct Status {
   enum {
     COMMAND_OK            = 0x00,
@@ -101,6 +103,10 @@ static const uint8_t BOOTLOADER_VERSION = 0x03;
 // As returned by POWER_UP_DISPLAY
 static const uint8_t DISPLAY_CONTROLLER_TYPE = 0x01;
 static const uint8_t DISPLAY_I2C_ADDRESS = 0x3C;
+
+#if defined(ARDUINO_STM32_GP20_MAINBOARD)
+static const uint16_t CHILD_SELECT_PIN = PD2;
+#endif // defined(ARDUINO_STM32_GP20_MAINBOARD)
 
 #if defined(USE_RS485)
 static const uint32_t BAUD_RATE = 1000000;

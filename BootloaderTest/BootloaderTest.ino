@@ -350,11 +350,26 @@ bool check_no_response_to(uint8_t addr) {
   return true;
 }
 
+void set_child_select(bool state) {
+  #if defined(USE_CHILD_SELECT)
+  // Write before for boards that support setting a state before the
+  // mode (AVR), and again after for boards that reset the state along
+  // with the mode (STM32, it seems) possibly resulting in a small
+  // glitch.
+  digitalWrite(CHILD_SELECT_PIN, state ? LOW : HIGH);
+  pinMode(CHILD_SELECT_PIN, OUTPUT);
+  digitalWrite(CHILD_SELECT_PIN, state ? LOW : HIGH);
+  #endif // defined(USE_CHILD_SELECT)
+}
+
 test(010_general_call_reset) {
   if (!cfg.resetAddr) {
     skip();
     return;
   }
+
+  // Reset should work without child select asserted
+  set_child_select(false);
 
   // Both general call commands reset the i2c address, so test both of
   // them randomly (we can't tell the difference from the outside
@@ -375,6 +390,9 @@ test(010_general_call_reset) {
   #endif
   cfg.curAddr = cfg.resetAddr;
   delay(100);
+
+  // After reset, child only responds with CS asserted
+  set_child_select(true);
 
   if (oldAddr && (oldAddr < FIRST_ADDRESS || oldAddr > LAST_ADDRESS)) {
     // If the old address is set, but outside the default range, check
@@ -425,6 +443,23 @@ test(030_protocol_version) {
 
   uint16_t version = data[0] << 8 | data[1];
   assertEqual(version, PROTOCOL_VERSION);
+}
+
+test(035_child_select_works) {
+  #if !defined(USE_CHILD_SELECT)
+  skip();
+  return;
+  #endif // !defined(USE_CHILD_SELECT)
+
+  // If we did not reset, then the child does not listen to child select now
+  if (!cfg.resetAddr) {
+    skip();
+    return;
+  }
+
+  set_child_select(false);
+  assertTrue(check_no_response_to(cfg.curAddr));
+  set_child_select(true);
 }
 
 test(040_not_set_i2c_address) {
@@ -518,6 +553,18 @@ test(050_set_i2c_address) {
   }
 
   // Check that commands work on the new address
+  assertTrue(check_responds_to(cfg.curAddr));
+
+  // Now an address is set, child select should no longer be needed
+  set_child_select(false);
+}
+
+test(051_child_select_no_longer_needed) {
+  #if !defined(USE_CHILD_SELECT)
+  skip();
+  return;
+  #endif // !defined(USE_CHILD_SELECT)
+
   assertTrue(check_responds_to(cfg.curAddr));
 }
 
