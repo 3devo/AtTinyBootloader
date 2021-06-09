@@ -804,6 +804,58 @@ test(084_crc_parity_error) {
 }
 #endif
 
+test(090_get_num_children) {
+  #if defined(USE_CHILD_SELECT)
+  uint8_t data[1];
+  assertTrue(run_transaction_ok(Commands::GET_NUM_CHILDREN, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
+
+  assertEqual(data[0], NUM_CHILDREN);
+  #else
+  assertTrue(check_command_not_supported(Commands::GET_NUM_CHILDREN));
+  #endif
+}
+
+test(091_set_child_select) {
+  #if defined(USE_CHILD_SELECT)
+  for (uint8_t i = 0; i < NUM_CHILDREN; ++i) {
+    auto on_failure = [&i]() { Serial.print("idx: "); Serial.println(i); };
+
+    // Check that the pin is is hi-Z by default (only pullup on board
+    // under test, that should form a divider with our internal
+    // pulldown)
+    uint16_t raw = analogRead(DOWNSTREAM_CS_CHECK_PINS[i]);
+    assertLessOrEqual(raw, 900, "", on_failure());
+    assertMoreOrEqual(raw, 100, "Did you connect the downstream child select pin?", on_failure());
+
+    uint8_t data[] = {
+      i,
+      1, // asserted
+    };
+    assertTrue(run_transaction_ok(Commands::SET_CHILD_SELECT, data, sizeof(data), nullptr, READ_EXACTLY(0)), "", on_failure());
+
+    // This code is written to work with or without an external
+    // pulldown on our board.
+    pinMode(DOWNSTREAM_CS_CHECK_PINS[i], INPUT_PULLDOWN);
+
+    // Check that the pin is pulled low hard
+    assertEqual(digitalRead(DOWNSTREAM_CS_CHECK_PINS[i]), LOW, "", on_failure());
+    raw = analogRead(DOWNSTREAM_CS_CHECK_PINS[i]);
+    assertLessOrEqual(raw, 100, "", on_failure());
+
+    data[1] = 0; // deasserted
+    assertTrue(run_transaction_ok(Commands::SET_CHILD_SELECT, data, sizeof(data), nullptr, READ_EXACTLY(0)), "", on_failure());
+
+    // Check that the pin is is hi-Z when deasserted
+    raw = analogRead(DOWNSTREAM_CS_CHECK_PINS[i]);
+    assertLessOrEqual(raw, 900, "", on_failure());
+    assertMoreOrEqual(raw, 100, "", on_failure());
+  }
+  #else
+  assertTrue(check_command_not_supported(Commands::SET_CHILD_SELECT));
+  #endif
+}
+
+
 test(100_command_not_supported) {
   uint8_t cmd = Commands::END_OF_COMMANDS;
   while (cmd != 0) {

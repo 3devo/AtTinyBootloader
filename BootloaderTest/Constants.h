@@ -62,6 +62,8 @@ struct Commands {
     FINALIZE_FLASH        = 0x07,
     READ_FLASH            = 0x08,
     GET_HARDWARE_REVISION = 0x09,
+    GET_NUM_CHILDREN      = 0x0a,
+    SET_CHILD_SELECT      = 0x0b,
     END_OF_COMMANDS
   };
 };
@@ -91,12 +93,14 @@ static const uint8_t HARDWARE_COMPATIBLE_REVISION = 0x01;
 static const uint8_t HARDWARE_REVISION = 0x14;
 static const uint16_t AVAILABLE_FLASH_SIZE = 8192-2048-2;
 static const bool SUPPORTS_DISPLAY = true;
+static const uint8_t NUM_CHILDREN = 0;
 #elif defined(TEST_SUBJECT_STM32)
 static const uint8_t HARDWARE_TYPE = 0x02;
 static const uint8_t HARDWARE_COMPATIBLE_REVISION = 0x10;
 static const uint8_t HARDWARE_REVISION = 0x10;
 static const uint16_t AVAILABLE_FLASH_SIZE = 65536-4096;
 static const bool SUPPORTS_DISPLAY = false;
+static const uint8_t NUM_CHILDREN = 1;
 #endif
 static const uint8_t BOOTLOADER_VERSION = 0x03;
 
@@ -106,6 +110,11 @@ static const uint8_t DISPLAY_I2C_ADDRESS = 0x3C;
 
 #if defined(ARDUINO_STM32_GP20_MAINBOARD)
 static const uint16_t CHILD_SELECT_PIN = PD2;
+static const uint16_t DOWNSTREAM_CS_CHECK_PINS[] = {
+  // These must be analog pins, may have a pulldown
+  PC4, // Thermistor 1
+};
+static_assert(sizeof(DOWNSTREAM_CS_CHECK_PINS)/sizeof(*DOWNSTREAM_CS_CHECK_PINS) >= NUM_CHILDREN, "Insufficient CS check pins");
 #endif // defined(ARDUINO_STM32_GP20_MAINBOARD)
 
 #if defined(USE_RS485)
