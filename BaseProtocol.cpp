@@ -20,11 +20,14 @@
 #include "Crc.h"
 #include "BaseProtocol.h"
 
+static int configuredAddress = 0;
+
 static int handleGeneralCall(uint8_t *data, uint8_t len, uint8_t /* maxLen */) {
 	if (len == 1 && data[0] == GeneralCallCommands::RESET) {
 		resetSystem();
 	} else if (len == 1 && data[0] == GeneralCallCommands::RESET_ADDRESS) {
 		BusResetDeviceAddress();
+		configuredAddress = 0;
 	}
 	return 0;
 }
@@ -49,14 +52,32 @@ cmd_result handleCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dat
 				return cmd_result(Status::NO_REPLY);
 
 			BusSetDeviceAddress(datain[0]);
+			configuredAddress = datain[0];
 			return cmd_ok();
 		default:
 			return processCommand(cmd, datain, len, dataout, maxLen);
 	}
 }
 
+// The bus implementation will already have checked whether the request
+// is addressed to us, this just checks whether child select maybe
+// prevents a response.
+bool shouldRespondToAddress(uint8_t address) {
+	#if defined(USE_CHILD_SELECT)
+	// Child select does not apply to general call or the configured
+	// address, and the pin is active low.
+	return address == 0 || address == configuredAddress || !CHILD_SELECT_PIN.read();
+	#else
+	(void)address; // unused
+	return true;
+	#endif
+}
+
 #if defined(USE_I2C)
 	int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
+		if (!shouldRespondToAddress(address))
+			return 0;
+
 		if (address == 0)
 			return handleGeneralCall(data, len, maxLen);
 
@@ -91,6 +112,9 @@ cmd_result handleCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dat
 	}
 #elif defined(USE_RS485)
 	int BusCallback(uint8_t address, uint8_t *data, uint8_t len, uint8_t maxLen) {
+		if (!shouldRespondToAddress(address))
+			return 0;
+
 		// Check that there is at least room for an address, status, length and CRC
 		if (maxLen < 5)
 			return 0;

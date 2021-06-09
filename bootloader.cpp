@@ -48,6 +48,8 @@ struct Commands {
 	static const uint8_t FINALIZE_FLASH        = 0x07;
 	static const uint8_t READ_FLASH            = 0x08;
 	static const uint8_t GET_HARDWARE_REVISION = 0x09;
+	static const uint8_t GET_NUM_CHILDREN      = 0x0a;
+	static const uint8_t SET_CHILD_SELECT      = 0x0b;
 };
 
 // Put version info into flash, so applications can read this to
@@ -274,6 +276,34 @@ cmd_result processCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *da
 			SelfProgram::readFlash(address, dataout, len);
 			return cmd_ok(len);
 		}
+		#if defined(USE_CHILD_SELECT)
+		case Commands::GET_NUM_CHILDREN:
+		{
+			if (len != 0)
+				return cmd_result(Status::INVALID_ARGUMENTS);
+
+			dataout[0] = NUM_CHILDREN;
+			return cmd_ok(1);
+		}
+		case Commands::SET_CHILD_SELECT:
+		{
+			if (len != 2)
+				return cmd_result(Status::INVALID_ARGUMENTS);
+
+			uint8_t index = datain[0];
+			uint8_t state = datain[1];
+
+			if (index >= NUM_CHILDREN || state > 1)
+				return cmd_result(Status::INVALID_ARGUMENTS);
+
+			if (state)
+				CHILDREN_SELECT_PINS[index].write(0);
+			else
+				CHILDREN_SELECT_PINS[index].hiz();
+
+			return cmd_ok(0);
+		}
+		#endif // defined(USE_CHILD_SELECT)
 
 		default:
 			return cmd_result(Status::COMMAND_NOT_SUPPORTED);

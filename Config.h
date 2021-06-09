@@ -32,8 +32,17 @@
 	#define NEED_TRAMPOLINE
 #elif defined(BOARD_TYPE_gphopper)
 	const uint8_t INFO_HW_TYPE = 2;
+        constexpr const Pin CHILDREN_SELECT_PINS[] = {
+            {RCC_GPIOB, GPIOB, GPIO8},
+        };
+        const Pin CHILD_SELECT_PIN = {RCC_GPIOB, GPIOB, GPIO9};
+	#define USE_CHILD_SELECT
 #else
 	#error "No board type defined"
+#endif
+
+#if defined(USE_CHILD_SELECT)
+const uint8_t NUM_CHILDREN = sizeof(CHILDREN_SELECT_PINS) / sizeof(*CHILDREN_SELECT_PINS);
 #endif
 
 // By default, listen to addresses 8-15
