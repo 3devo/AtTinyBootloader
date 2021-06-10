@@ -350,6 +350,19 @@ bool check_no_response_to(uint8_t addr) {
   return true;
 }
 
+bool check_command_not_supported(uint8_t cmd) {
+  auto on_failure = [cmd]() {
+    Serial.print("cmd = ");
+    Serial.println(cmd);
+    return false;
+  };
+
+  uint8_t status;
+  assertTrue(run_transaction(cmd, nullptr, 0, &status), "", on_failure());
+  assertEqual(status, Status::COMMAND_NOT_SUPPORTED, "", on_failure());
+  return true;
+}
+
 void set_child_select(bool state) {
   #if defined(USE_CHILD_SELECT)
   // Write before for boards that support setting a state before the
@@ -793,11 +806,8 @@ test(084_crc_parity_error) {
 
 test(100_command_not_supported) {
   uint8_t cmd = Commands::END_OF_COMMANDS;
-  auto on_failure = [&cmd]() { Serial.print("cmd: "); Serial.println(cmd); };
   while (cmd != 0) {
-    uint8_t status;
-    assertTrue(run_transaction(cmd, nullptr, 0, &status), "", on_failure());
-    assertEqual(status, Status::COMMAND_NOT_SUPPORTED, "", on_failure());
+    assertTrue(check_command_not_supported(cmd));
     ++cmd;
   }
 }
