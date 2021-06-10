@@ -33,7 +33,7 @@
 	#define NEED_TRAMPOLINE
 #elif defined(BOARD_TYPE_gphopper)
 	const uint8_t INFO_HW_TYPE = 2;
-        const uint16_t MAX_PACKET_LENGTH = 32;
+        const uint16_t MAX_PACKET_LENGTH = 255;
         constexpr const Pin CHILDREN_SELECT_PINS[] = {
             {RCC_GPIOB, GPIOB, GPIO8},
         };
