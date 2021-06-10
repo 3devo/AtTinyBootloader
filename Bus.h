@@ -19,6 +19,9 @@
 #define BUS_H_
 
 #include <stdint.h>
+#include "Config.h"
+
+static_assert(MAX_PACKET_LENGTH >= 32, "Protocol requires at least 32-byte packets");
 
 void BusUpdate();
 void BusInit(uint8_t initialAddress, uint8_t initialBits = 7);

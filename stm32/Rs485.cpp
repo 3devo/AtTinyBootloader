@@ -147,11 +147,15 @@ void BusResetDeviceAddress() {
 	configuredAddress = 0;
 }
 
-#define BUFFER_SIZE 32
-static uint8_t busBuffer[BUFFER_SIZE];
+// For RS485, MAX_PACKET_LENGTH is defined including the address byte.
+// For requests, the address is stored outside of busBuffer, so this
+// buffer is 1 byte too long. However, for replies the adress is stored
+// inside the buffer, so use the full MAX_PACKET_LENGTH anyway.
+static uint8_t busBuffer[MAX_PACKET_LENGTH];
 static uint8_t busBufferLen = 0;
 static uint8_t busTxPos = 0;
 static uint8_t busAddress = 0;
+static_assert(MAX_PACKET_LENGTH < (1 << (sizeof(busBufferLen) * 8)), "Code needs changes for bigger packets");
 
 enum State {
 	StateIdle,
@@ -202,7 +206,7 @@ void BusUpdate() {
 			busAddress = data;
 			busState = StateRead;
 			busBufferLen = 0;
-		} else if (busBufferLen < BUFFER_SIZE) {
+		} else if (busBufferLen < sizeof(busBuffer)) {
 			busBuffer[busBufferLen++] = data;
 		} else {
 			printf("rx ovf\n");
@@ -238,7 +242,7 @@ void BusUpdate() {
 		if (!rxok || busBufferLen == 0 || !matched) {
 			busBufferLen = 0;
 		} else {
-			busBufferLen = BusCallback(busAddress, busBuffer, busBufferLen, BUFFER_SIZE);
+			busBufferLen = BusCallback(busAddress, busBuffer, busBufferLen, sizeof(busBuffer));
 		}
 		if (busBufferLen) {
 			busState = StateWrite;

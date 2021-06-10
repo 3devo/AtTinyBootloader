@@ -28,10 +28,12 @@
 
 	const uint8_t INFO_HW_TYPE = 1;
 	const uint8_t DISPLAY_CONTROLLER_TYPE = 1;
+        const uint16_t MAX_PACKET_LENGTH = 32;
 	#define HAVE_DISPLAY
 	#define NEED_TRAMPOLINE
 #elif defined(BOARD_TYPE_gphopper)
 	const uint8_t INFO_HW_TYPE = 2;
+        const uint16_t MAX_PACKET_LENGTH = 32;
         constexpr const Pin CHILDREN_SELECT_PINS[] = {
             {RCC_GPIOB, GPIOB, GPIO8},
         };

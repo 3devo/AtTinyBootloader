@@ -70,11 +70,11 @@ static void _Acknowledge(bool ack, bool complete=false) {
 }
 
 
-#define TWI_BUFFER_SIZE 32
-static uint8_t twiBuffer[TWI_BUFFER_SIZE];
+static uint8_t twiBuffer[MAX_PACKET_LENGTH];
 static uint8_t twiBufferLen = 0;
 static uint8_t twiReadPos = 0;
 static uint8_t twiAddress = 0;
+static_assert(MAX_PACKET_LENGTH < (1 << (sizeof(twiBufferLen) * 8)), "Code needs changes for bigger packets");
 
 enum TWIState {
 	TWIStateIdle,
@@ -105,7 +105,7 @@ void BusUpdate() {
 	if (isAddressOrStop) {
 		// If we were previously in a write, then execute the callback and setup for a read.
 		if ((twiState == TWIStateWrite) and twiBufferLen != 0) {
-			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
+			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, sizeof(twiBuffer));
 		}
 
 		// Send an ack unless a read is starting and there are no bytes to read.
@@ -144,7 +144,7 @@ void BusUpdate() {
 		uint8_t data = TWSD;
 		_Acknowledge(true, false);
 
-		if (twiBufferLen < TWI_BUFFER_SIZE) {
+		if (twiBufferLen < sizeof(twiBuffer)) {
 			twiBuffer[twiBufferLen++] = data;
 		}
 		return;

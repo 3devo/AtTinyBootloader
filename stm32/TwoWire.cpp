@@ -82,12 +82,12 @@ void BusResetDeviceAddress() {
 	I2C_OAR2(I2C1) = I2C_OAR2_OA2EN | (oa2msk << 8) | (initAddress << 1);
 }
 
-#define TWI_BUFFER_SIZE 32
-static uint8_t twiBuffer[TWI_BUFFER_SIZE];
+static uint8_t twiBuffer[MAX_PACKET_LENGTH];
 static uint8_t twiBufferLen = 0;
 static uint8_t twiReadPos = 0;
 static uint8_t twiAddress = 0;
 static bool isReadOperation;
+static_assert(MAX_PACKET_LENGTH < (1 << (sizeof(twiBufferLen) * 8)), "Code needs changes for bigger packets");
 
 // Extract the address from the I²C status register
 uint8_t address_from_isr(uint32_t isr) {
@@ -114,7 +114,7 @@ void BusUpdate() {
 		// Reading data clears RXNE
 		uint8_t data = i2c_get_data(I2C1);
 
-		if (twiBufferLen < TWI_BUFFER_SIZE)
+		if (twiBufferLen < sizeof(twiBuffer))
 			twiBuffer[twiBufferLen++] = data;
 		printf("rx: 0x%02x\n", (unsigned)data);
 	}
@@ -136,7 +136,7 @@ void BusUpdate() {
 		printf("stop|repstart\n");
 		// If we were previously in a write, then execute the callback and setup for a read.
 		if (twiBufferLen != 0)
-			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, TWI_BUFFER_SIZE);
+			twiBufferLen = BusCallback(twiAddress, twiBuffer, twiBufferLen, sizeof(twiBuffer));
 		twiState = TWIStateIdle;
 	}
 	// Clear stop flag
