@@ -855,6 +855,16 @@ test(091_set_child_select) {
   #endif
 }
 
+test(095_get_max_packet_length) {
+  if (SUPPORTS_GET_MAX_PACKET_LENGTH) {
+    uint8_t data[2];
+    assertTrue(run_transaction_ok(Commands::GET_MAX_PACKET_LENGTH, nullptr, 0, data, READ_EXACTLY(sizeof(data))));
+
+    assertEqual(data[0] << 8 | data[1], MAX_MSG_LEN);
+  } else {
+    assertTrue(check_command_not_supported(Commands::GET_MAX_PACKET_LENGTH));
+  }
+}
 
 test(100_command_not_supported) {
   uint8_t cmd = Commands::END_OF_COMMANDS;
