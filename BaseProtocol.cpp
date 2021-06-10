@@ -54,6 +54,10 @@ cmd_result handleCommand(uint8_t cmd, uint8_t *datain, uint8_t len, uint8_t *dat
 			BusSetDeviceAddress(datain[0]);
 			configuredAddress = datain[0];
 			return cmd_ok();
+		case ProtocolCommands::GET_MAX_PACKET_LENGTH:
+			dataout[0] = MAX_PACKET_LENGTH >> 8;
+			dataout[1] = MAX_PACKET_LENGTH & 0xFF;
+			return cmd_ok(2);
 		default:
 			return processCommand(cmd, datain, len, dataout, maxLen);
 	}

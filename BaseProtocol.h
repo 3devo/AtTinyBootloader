@@ -48,6 +48,7 @@ struct GeneralCallCommands {
 struct ProtocolCommands {
 	static const uint8_t GET_PROTOCOL_VERSION  = 0x00;
 	static const uint8_t SET_ADDRESS           = 0x01;
+	static const uint8_t GET_MAX_PACKET_LENGTH = 0x0c;
 };
 
 struct cmd_result {
