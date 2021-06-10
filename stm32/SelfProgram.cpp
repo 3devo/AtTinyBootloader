@@ -23,8 +23,8 @@
 #define FLASH_BASE                      (0x08000000U)
 #endif
 
-// Writing happens per doubleword
-#if FLASH_WRITE_SIZE != 8
+// Writing happens per row
+#if FLASH_WRITE_SIZE != 256
 #error "Incorrect FLASH_WRITE_SIZE"
 #endif
 
@@ -49,8 +49,47 @@ uint8_t SelfProgram::readByte(uint16_t address) {
 	return *ptr;
 }
 
+// Ensure that this code runs from RAM by putting into the .data
+// section, because during fast programming, no flash read accesses can
+// happen. This also needs noinline to ensure this code is not inlined
+// into a function running from flash, and this function cannot call
+// other functions that run from flash, so it is a bit more hardcoded
+// that it could be.
+__attribute__(( __section__(".data"), __noinline__ ))
+static void flash_program_row(uint16_t address, uint8_t *data, uint16_t len) {
+	#if !defined(STM32G0)
+	#warning "Fast programming code written for G0, might not work on other series"
+	#endif
+
+	// Wait for previous operations (just in case)
+	while ((FLASH_SR & FLASH_SR_BSY) == FLASH_SR_BSY);
+
+	// Enable fast programming.
+	FLASH_CR |= FLASH_CR_FSTPG;
+
+	for (uint16_t i = 0; i < 256; i += 4) {
+		auto make_word_le = [](uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+			return (uint32_t)a << 0 | (uint32_t)b << 8 | (uint32_t)c << 16 | (uint32_t)d << 24;
+		};
+		uint32_t value = make_word_le(
+			i + 0 < len ? data[i + 0] : 0xff,
+			i + 1 < len ? data[i + 1] : 0xff,
+			i + 2 < len ? data[i + 2] : 0xff,
+			i + 3 < len ? data[i + 3] : 0xff);
+
+		// Program each word in turn
+		MMIO32(FLASH_BASE + FLASH_APP_OFFSET + address + i) = value;
+	}
+
+	// Wait for completion
+	while ((FLASH_SR & FLASH_SR_BSY) == FLASH_SR_BSY);
+
+	// Disable fast programming again
+	FLASH_CR &= ~(FLASH_CR_FSTPG);
+}
+
 uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint16_t len) {
-	// Can only write to a 16 byte page boundary
+	// Can only write to a row boundary
 	if (!len || address % FLASH_WRITE_SIZE != 0 || len > FLASH_WRITE_SIZE) {
 		return 1;
 	}
@@ -71,21 +110,8 @@ uint8_t SelfProgram::writePage(uint16_t address, uint8_t *data, uint16_t len) {
 	}
 
 	// If no errors from erase, then program
-	if (FLASH_SR == 0) {
-		// TODO: There is a "fast programming mode", that writes
-		// 256 bytes at a time, but it seems opencm3 does not
-		// support this yet.
-		uint64_t value =
-			(uint64_t)data[0] << 0 |
-			(uint64_t)data[1] << 8 |
-			(uint64_t)data[2] << 16 |
-			(uint64_t)data[3] << 24 |
-			(uint64_t)data[4] << 32 |
-			(uint64_t)data[5] << 40 |
-			(uint64_t)data[6] << 48 |
-			(uint64_t)data[7] << 56;
-		flash_program_double_word(FLASH_BASE + FLASH_APP_OFFSET + address, value);
-	}
+	if (FLASH_SR == 0)
+		flash_program_row(address, data, len);
 	flash_lock();
 
 

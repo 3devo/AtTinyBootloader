@@ -93,7 +93,7 @@ static uint8_t commitToFlash(uint16_t address, uint16_t len) {
 
 	uint16_t offset = 0;
 	while (len > 0) {
-		uint8_t pageLen = len < FLASH_WRITE_SIZE ? len : FLASH_WRITE_SIZE;
+		uint16_t pageLen = len < FLASH_WRITE_SIZE ? len : FLASH_WRITE_SIZE;
 		uint8_t err = SelfProgram::writePage(address + offset, &writeBuffer[offset], pageLen);
 		if (err)
 			return err;

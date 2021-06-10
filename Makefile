@@ -30,7 +30,7 @@ BL_OFFSET           = $(shell expr $(FLASH_SIZE) - $(BL_SIZE))
 else ifeq ($(ARCH),stm32)
 OPENCM3_DIR         = libopencm3
 DEVICE              = stm32g030c8t6
-FLASH_WRITE_SIZE    = 8
+FLASH_WRITE_SIZE    = 256
 FLASH_ERASE_SIZE    = 2048
 FLASH_SIZE          = 65536
 # Size of the bootloader area. Must be a multiple of the erase size
